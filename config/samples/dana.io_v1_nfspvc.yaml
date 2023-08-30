@@ -1,0 +1,12 @@
+apiVersion: dana.io.dana.io/v1
+kind: NfsPvc
+metadata:
+  labels:
+    app.kubernetes.io/name: nfspvc
+    app.kubernetes.io/instance: nfspvc-sample
+    app.kubernetes.io/part-of: nfs-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: nfs-operator
+  name: nfspvc-sample
+spec:
+  # TODO(user): Add fields here
