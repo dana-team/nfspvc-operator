@@ -28,15 +28,30 @@ type NfsPvcSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of NfsPvc. Edit nfspvc_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// accessmodes is the type of the access on the pvc RWX, RWo, ROX
+	AccessModes string `json:"accessmodes"`
+	// capacity is for the size of the nfs
+	Capacity string `json:"capacity"`
+	// path is the path of the nfs volume
+	Path string `json:"path"`
+	// the server that store you nfs
+	Server string `json:"server"`
 }
 
 // NfsPvcStatus defines the observed state of NfsPvc
 type NfsPvcStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	PvcStatus PvcCreationStatus `json:"pvcStatus"`
 }
+
+type PvcCreationStatus string
+
+const (
+	PvcStatusPending PvcCreationStatus = "Pending"
+	PvcStatusCreated PvcCreationStatus = "Created"
+	PvcStatusError   PvcCreationStatus = "Error"
+)
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
