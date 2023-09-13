@@ -19,6 +19,8 @@ package controller
 import (
 	"context"
 
+	"github.com/go-logr/logr"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,19 +29,19 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	corev1 "k8s.io/api/core/v1"
 
 	danaiov1 "dana.io/nfs-operator/api/v1"
 
-	"dana.io/nfs-operator/internal/controller/utils"
+	nfspvcutils "dana.io/nfs-operator/internal/controller/utils"
 )
 
 // NfsPvcReconciler reconciles a NfsPvc object
 type NfsPvcReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Log    logr.Logger
 }
 
 const (
@@ -47,6 +49,7 @@ const (
 )
 
 func (r *NfsPvcReconciler) deleteAssociatedResources(ctx context.Context, nfspvc *danaiov1.NfsPvc) error {
+
 	pvName := nfspvc.Name + "-" + nfspvc.Namespace
 
 	// Delete the PersistentVolume
@@ -77,17 +80,19 @@ func (r *NfsPvcReconciler) deleteAssociatedResources(ctx context.Context, nfspvc
 
 func (r *NfsPvcReconciler) HandleDeletion(ctx context.Context, nfspvc *danaiov1.NfsPvc) error {
 	// Check if our finalizer is present
-	if utils.ContainsString(nfspvc.ObjectMeta.Finalizers, NfsPvcFinalizerName) {
+
+	if nfspvcutils.ContainsString(nfspvc.ObjectMeta.Finalizers, NfsPvcFinalizerName) {
 		// Handle the actual cleanup of associated resources
 		if err := r.deleteAssociatedResources(ctx, nfspvc); err != nil {
 			return err
 		}
 
 		// Remove the finalizer after cleanup
-		nfspvc.ObjectMeta.Finalizers = utils.RemoveString(nfspvc.ObjectMeta.Finalizers, NfsPvcFinalizerName)
+		nfspvc.ObjectMeta.Finalizers = nfspvcutils.RemoveString(nfspvc.ObjectMeta.Finalizers, NfsPvcFinalizerName)
 		if err := r.Update(ctx, nfspvc); err != nil {
 			return err
 		}
+
 	}
 	return nil
 }
@@ -126,8 +131,7 @@ func (r *NfsPvcReconciler) HandleCreation(ctx context.Context, nfspvc *danaiov1.
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.15.0/pkg/reconcile
 
 func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
+	logger := r.Log
 	var nfspvcFetched bool
 
 	// Fetch the NfsPvc instance
@@ -169,6 +173,7 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			return ctrl.Result{}, err
 		}
 		// Stop reconciliation as the item is being deleted
+		logger.Info("debug pv and pvc deletion", "pv pvc", "pvc")
 		return ctrl.Result{}, nil
 	}
 
@@ -214,6 +219,7 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		if err := r.Create(ctx, pv); err != nil {
 			return ctrl.Result{}, err
 		}
+
 	} else if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -243,6 +249,7 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	err = r.Get(ctx, req.NamespacedName, nfspvc)
 	nfspvc.Status.PvcStatus = danaiov1.PvcStatusCreated
 	if err := r.Status().Update(ctx, nfspvc); err != nil {
 		return ctrl.Result{}, err

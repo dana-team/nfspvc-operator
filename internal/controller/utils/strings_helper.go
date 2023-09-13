@@ -1,4 +1,4 @@
-package utils
+package controllers_utils
 
 func ContainsString(slice []string, s string) bool {
 	for _, item := range slice {
