@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,9 +30,9 @@ type NfsPvcSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// accessmodes is the type of the access on the pvc RWX, RWo, ROX
-	AccessModes string `json:"accessmodes"`
+	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty" protobuf:"bytes,3,rep,name=accessModes,casttype=PersistentVolumeAccessMode"`
 	// capacity is for the size of the nfs
-	Capacity string `json:"capacity"`
+	Capacity corev1.ResourceList `json:"capacity,omitempty" protobuf:"bytes,1,rep,name=capacity,casttype=ResourceList,castkey=ResourceName"`
 	// path is the path of the nfs volume
 	Path string `json:"path"`
 	// the server that store you nfs

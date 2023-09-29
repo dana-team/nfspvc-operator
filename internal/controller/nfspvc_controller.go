@@ -18,17 +18,20 @@ package controller
 
 import (
 	"context"
+	"strings"
 
 	"github.com/go-logr/logr"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -45,7 +48,8 @@ type NfsPvcReconciler struct {
 }
 
 const (
-	NfsPvcFinalizerName = "nfspvc.dana.io/finalizer"
+	NfsPvcFinalizerName     = "nfspvc.dana.io/finalizer"
+	pvcBindStatusAnnotation = "pv.kubernetes.io/bind-completed"
 )
 
 func (r *NfsPvcReconciler) deleteAssociatedResources(ctx context.Context, nfspvc *danaiov1.NfsPvc) error {
@@ -114,6 +118,61 @@ func (r *NfsPvcReconciler) HandleCreation(ctx context.Context, nfspvc *danaiov1.
 	return nil
 }
 
+// HandleUpdate handles nfspvc edit situation
+func (r *NfsPvcReconciler) HandleUpdate(ctx context.Context, nfspvc *danaiov1.NfsPvc) error {
+	// I need to check if someone edited the nfspvc object
+	// first i will check if there are already bounded pv:
+	pvName := nfspvc.Name + "-" + nfspvc.Namespace
+	pv := &corev1.PersistentVolume{}
+	err := r.Get(ctx, types.NamespacedName{Name: pvName}, pv)
+
+	if err == nil && pv.ObjectMeta.DeletionTimestamp.IsZero() {
+		// the pv exists so i need to compare the nfspvc relevant field which are:
+		// accessmodes, capacity, path, server
+		// with the pv and check if there is a difference
+		// if there is a difference it means that the nfspvc was updated
+		pvAccessModes := pv.Spec.AccessModes[0]
+		pvCapacity := pv.Spec.Capacity.Storage()
+		pvPath := pv.Spec.NFS.Path
+		pvServer := pv.Spec.NFS.Server
+
+		isNfsPvcUpdated := pvAccessModes != nfspvc.Spec.AccessModes[0] ||
+			pvCapacity != nfspvc.Spec.Capacity.Storage() ||
+			pvPath != nfspvc.Spec.Path ||
+			pvServer != nfspvc.Spec.Server
+
+		// if the nfspvc object was updated then delete the pv and pvc,
+		// this deletion will trigger pv and pvc recreation with the new fields
+		if isNfsPvcUpdated {
+			r.deleteAssociatedResources(ctx, nfspvc)
+		}
+	}
+	return nil
+}
+
+func (r *NfsPvcReconciler) HandleExistingPv(ctx context.Context, pv *corev1.PersistentVolume) error {
+
+	// If pv is in failed status then delete it which will trigger recreation of the pv
+	if pv.Status.Phase == "Failed" {
+		if err := r.Delete(ctx, pv); client.IgnoreNotFound(err) != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *NfsPvcReconciler) HandleExistingPvc(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
+	// If pvc is lost and was already bind delete the annotation
+	bindStatus, ok := pvc.ObjectMeta.Annotations[pvcBindStatusAnnotation]
+	if pvc.Status.Phase == "Lost" && ok && bindStatus == "yes" {
+		delete(pvc.ObjectMeta.Annotations, pvcBindStatusAnnotation)
+		return r.Update(ctx, pvc)
+	}
+
+	return nil
+}
+
 //+kubebuilder:rbac:groups="",resources=persistentvolumes,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups=dana.io.dana.io,resources=nfspvcs,verbs=get;list;watch;create;update;patch;delete
@@ -133,7 +192,6 @@ func (r *NfsPvcReconciler) HandleCreation(ctx context.Context, nfspvc *danaiov1.
 func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.Log
 	var nfspvcFetched bool
-
 	// Fetch the NfsPvc instance
 	nfspvc := &danaiov1.NfsPvc{}
 	err := r.Get(ctx, req.NamespacedName, nfspvc)
@@ -185,24 +243,33 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	logger.Info("after handle creation")
+
+	if err := r.HandleUpdate(ctx, nfspvc); err != nil {
+		logger.Error(err, "Failed to handle Update") // Logging the error
+		return ctrl.Result{}, err
+	}
+
+	logger.Info("after handle update")
+
 	pvName := nfspvc.Name + "-" + nfspvc.Namespace
 
 	pv := &corev1.PersistentVolume{}
 	err = r.Get(ctx, types.NamespacedName{Name: pvName}, pv)
+
 	if err != nil && errors.IsNotFound(err) {
 		// PV doesn't exist, so we'll create it
 		// When creating the PV, use 'pvName' as its name.
 		// ...
+		logger.Info("hello", "blablab", nfspvc.Spec.AccessModes)
 		pv = &corev1.PersistentVolume{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: pvName,
 			},
 			Spec: corev1.PersistentVolumeSpec{
-				Capacity: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse(nfspvc.Spec.Capacity),
-				},
-				AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.PersistentVolumeAccessMode(nfspvc.Spec.AccessModes)},
-				PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+				Capacity:                      nfspvc.Spec.Capacity,
+				AccessModes:                   nfspvc.Spec.AccessModes,
+				PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRecycle,
 				PersistentVolumeSource: corev1.PersistentVolumeSource{
 					NFS: &corev1.NFSVolumeSource{
 						Server:   nfspvc.Spec.Server,
@@ -222,6 +289,8 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	} else if err != nil {
 		return ctrl.Result{}, err
+	} else if err == nil {
+		r.HandleExistingPv(ctx, pv)
 	}
 
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -235,9 +304,7 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			Spec: corev1.PersistentVolumeClaimSpec{
 				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, // You need to map this from your CR
 				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: resource.MustParse(nfspvc.Spec.Capacity),
-					},
+					Requests: nfspvc.Spec.Capacity,
 				},
 				VolumeName: pvName,
 			},
@@ -247,6 +314,8 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 	} else if err != nil {
 		return ctrl.Result{}, err
+	} else if err == nil {
+		r.HandleExistingPvc(ctx, pvc)
 	}
 
 	err = r.Get(ctx, req.NamespacedName, nfspvc)
@@ -258,9 +327,67 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return ctrl.Result{}, nil
 }
 
+func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolume(ctx context.Context, o client.Object) []reconcile.Request {
+	logger := log.FromContext(ctx)
+	persistentvolume := o.(*corev1.PersistentVolume)
+	var requests []reconcile.Request
+
+	// pvName is determined this way: nfspvc.Name + "-" + nfspvc.Namespace
+	// so in order to find out the name of the related nfspvc and namespace i will split the name
+	// of the pv by '-'
+
+	pvName := persistentvolume.ObjectMeta.Name
+
+	splitedPvName := strings.Split(pvName, "-")
+
+	nfspvcName := splitedPvName[0]
+
+	nfspvcNamespace := splitedPvName[1]
+
+	requests = append(requests, reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      nfspvcName,
+			Namespace: nfspvcNamespace,
+		},
+	})
+
+	// Log the number of requests enqueued for the given Namespace
+	logger.Info("Enqueued requests for namespace", "Namespace", nfspvcNamespace, "nfspvc Name", nfspvcName)
+
+	return requests
+}
+
+func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolumeClaim(ctx context.Context, o client.Object) []reconcile.Request {
+	logger := log.FromContext(ctx)
+	persistentvolumeClaim := o.(*corev1.PersistentVolumeClaim)
+	var requests []reconcile.Request
+
+	// pvName is determined this way: nfspvc.Name + "-" + nfspvc.Namespace
+	// so in order to find out the name of the related nfspvc and namespace i will split the name
+	// of the pv by '-'
+
+	nfspvcName := persistentvolumeClaim.Name
+
+	nfspvcNamespace := persistentvolumeClaim.Namespace
+
+	requests = append(requests, reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      nfspvcName,
+			Namespace: nfspvcNamespace,
+		},
+	})
+
+	// Log the number of requests enqueued for the given Namespace
+	logger.Info("Enqueued requests for namespace", "Namespace", nfspvcNamespace, "nfspvc Name", nfspvcName)
+
+	return requests
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *NfsPvcReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&danaiov1.NfsPvc{}).
+		Watches(&corev1.PersistentVolume{}, handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromPersistentVolume)).
+		Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromPersistentVolumeClaim)).
 		Complete(r)
 }

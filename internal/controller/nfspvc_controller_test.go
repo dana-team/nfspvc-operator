@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -20,12 +21,17 @@ import (
 )
 
 const (
-	timeout           = time.Second * 10
-	interval          = time.Second * 1
-	defaultAccessMode = "ReadWriteOnce"
-	defaultCapacity   = "1Gi"
-	defaultPath       = "/path/to/nfs"
-	defaultServer     = "nfs-server.example.com"
+	timeout       = time.Second * 20
+	interval      = time.Second * 1
+	defaultPath   = "/path/to/nfs"
+	defaultServer = "nfs-server.example.com"
+)
+
+var (
+	defaultAccessMode = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+	defaultCapacity   = corev1.ResourceList{
+		corev1.ResourceStorage: resource.MustParse("1Gi"),
+	}
 )
 
 var (
