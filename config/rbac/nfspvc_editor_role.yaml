@@ -12,7 +12,7 @@ metadata:
   name: nfspvc-editor-role
 rules:
 - apiGroups:
-  - dana.io.dana.io
+  - nfspvc.dana.io
   resources:
   - nfspvcs
   verbs:
@@ -24,7 +24,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - dana.io.dana.io
+  - nfspvc.dana.io
   resources:
   - nfspvcs/status
   verbs:

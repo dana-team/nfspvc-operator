@@ -1,4 +1,4 @@
 ## Append samples of your project ##
 resources:
-- dana.io_v1_nfspvc.yaml
+- nfspvc_v1alpha1_nfspvc.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

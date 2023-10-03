@@ -12,7 +12,7 @@ metadata:
   name: nfspvc-viewer-role
 rules:
 - apiGroups:
-  - dana.io.dana.io
+  - nfspvc.dana.io
   resources:
   - nfspvcs
   verbs:
@@ -20,7 +20,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - dana.io.dana.io
+  - nfspvc.dana.io
   resources:
   - nfspvcs/status
   verbs:

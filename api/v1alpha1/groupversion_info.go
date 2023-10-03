@@ -14,10 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package v1 contains API Schema definitions for the dana.io v1 API group
+// Package v1alpha1 contains API Schema definitions for the nfspvc v1alpha1 API group
 // +kubebuilder:object:generate=true
-// +groupName=dana.io.dana.io
-package v1
+// +groupName=nfspvc.dana.io
+package v1alpha1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -26,7 +26,7 @@ import (
 
 var (
 	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "dana.io.dana.io", Version: "v1"}
+	GroupVersion = schema.GroupVersion{Group: "nfspvc.dana.io", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}

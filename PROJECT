@@ -13,8 +13,8 @@ resources:
     namespaced: true
   controller: true
   domain: dana.io
-  group: dana.io
+  group: nfspvc
   kind: NfsPvc
-  path: dana.io/nfs-operator/api/v1
-  version: v1
+  path: dana.io/nfs-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"

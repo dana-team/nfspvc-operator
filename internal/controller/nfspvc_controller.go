@@ -35,7 +35,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	danaiov1 "dana.io/nfs-operator/api/v1"
+	danaiov1alpha1 "dana.io/nfs-operator/api/v1alpha1"
 
 	nfspvcutils "dana.io/nfs-operator/internal/controller/utils"
 )
@@ -52,7 +52,7 @@ const (
 	pvcBindStatusAnnotation = "pv.kubernetes.io/bind-completed"
 )
 
-func (r *NfsPvcReconciler) deleteAssociatedResources(ctx context.Context, nfspvc *danaiov1.NfsPvc) error {
+func (r *NfsPvcReconciler) deleteAssociatedResources(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc) error {
 
 	pvName := nfspvc.Name + "-" + nfspvc.Namespace
 
@@ -82,7 +82,7 @@ func (r *NfsPvcReconciler) deleteAssociatedResources(ctx context.Context, nfspvc
 	return nil
 }
 
-func (r *NfsPvcReconciler) HandleDeletion(ctx context.Context, nfspvc *danaiov1.NfsPvc) error {
+func (r *NfsPvcReconciler) HandleDeletion(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc) error {
 	// Check if our finalizer is present
 
 	if nfspvcutils.ContainsString(nfspvc.ObjectMeta.Finalizers, NfsPvcFinalizerName) {
@@ -102,10 +102,10 @@ func (r *NfsPvcReconciler) HandleDeletion(ctx context.Context, nfspvc *danaiov1.
 }
 
 // HandleCreation handles the creation phase, including adding finalizers.
-func (r *NfsPvcReconciler) HandleCreation(ctx context.Context, nfspvc *danaiov1.NfsPvc) error {
+func (r *NfsPvcReconciler) HandleCreation(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc) error {
 	// If PVC status is empty, set it to Pending
 	if nfspvc.Status.PvcStatus == "" {
-		nfspvc.Status.PvcStatus = danaiov1.PvcStatusPending
+		nfspvc.Status.PvcStatus = danaiov1alpha1.PvcStatusPending
 		if err := r.Status().Update(ctx, nfspvc); err != nil {
 			return err
 		}
@@ -119,7 +119,8 @@ func (r *NfsPvcReconciler) HandleCreation(ctx context.Context, nfspvc *danaiov1.
 }
 
 // HandleUpdate handles nfspvc edit situation
-func (r *NfsPvcReconciler) HandleUpdate(ctx context.Context, nfspvc *danaiov1.NfsPvc) error {
+func (r *NfsPvcReconciler) HandleUpdate(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc) error {
+	logger := r.Log
 	// I need to check if someone edited the nfspvc object
 	// first i will check if there are already bounded pv:
 	pvName := nfspvc.Name + "-" + nfspvc.Namespace
@@ -135,12 +136,12 @@ func (r *NfsPvcReconciler) HandleUpdate(ctx context.Context, nfspvc *danaiov1.Nf
 		pvCapacity := pv.Spec.Capacity.Storage()
 		pvPath := pv.Spec.NFS.Path
 		pvServer := pv.Spec.NFS.Server
-
+		logger.Info("hello", "pvAccessModes", pvAccessModes != nfspvc.Spec.AccessModes[0], "nfsPvAccessModes", pvCapacity != nfspvc.Spec.Capacity.Storage())
 		isNfsPvcUpdated := pvAccessModes != nfspvc.Spec.AccessModes[0] ||
-			pvCapacity != nfspvc.Spec.Capacity.Storage() ||
+			!nfspvc.Spec.Capacity.Storage().Equal(*pvCapacity) ||
 			pvPath != nfspvc.Spec.Path ||
 			pvServer != nfspvc.Spec.Server
-
+		logger.Info("hello2", "isNfsPvcUpdated", isNfsPvcUpdated)
 		// if the nfspvc object was updated then delete the pv and pvc,
 		// this deletion will trigger pv and pvc recreation with the new fields
 		if isNfsPvcUpdated {
@@ -193,7 +194,7 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	logger := r.Log
 	var nfspvcFetched bool
 	// Fetch the NfsPvc instance
-	nfspvc := &danaiov1.NfsPvc{}
+	nfspvc := &danaiov1alpha1.NfsPvc{}
 	err := r.Get(ctx, req.NamespacedName, nfspvc)
 
 	if err == nil {
@@ -202,7 +203,7 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	defer func() {
 		if err != nil && nfspvcFetched {
-			nfspvc.Status.PvcStatus = danaiov1.PvcStatusError
+			nfspvc.Status.PvcStatus = danaiov1alpha1.PvcStatusError
 			updateErr := r.Status().Update(ctx, nfspvc)
 			if updateErr != nil {
 				logger.Error(updateErr, "Failed to update NfsPvc status to error.")
@@ -319,7 +320,7 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	err = r.Get(ctx, req.NamespacedName, nfspvc)
-	nfspvc.Status.PvcStatus = danaiov1.PvcStatusCreated
+	nfspvc.Status.PvcStatus = danaiov1alpha1.PvcStatusCreated
 	if err := r.Status().Update(ctx, nfspvc); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -386,7 +387,7 @@ func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolumeClaim(ctx context.
 // SetupWithManager sets up the controller with the Manager.
 func (r *NfsPvcReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&danaiov1.NfsPvc{}).
+		For(&danaiov1alpha1.NfsPvc{}).
 		Watches(&corev1.PersistentVolume{}, handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromPersistentVolume)).
 		Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromPersistentVolumeClaim)).
 		Complete(r)

@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	danaiov1 "dana.io/nfs-operator/api/v1"
+	nfspvcv1alpha1 "dana.io/nfs-operator/api/v1alpha1"
 	"dana.io/nfs-operator/internal/controller"
 	//+kubebuilder:scaffold:imports
 )
@@ -44,7 +44,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(danaiov1.AddToScheme(scheme))
+	utilruntime.Must(nfspvcv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

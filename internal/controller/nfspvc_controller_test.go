@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	danaiov1 "dana.io/nfs-operator/api/v1"
+	danaiov1alpha1 "dana.io/nfs-operator/api/v1alpha1"
 	"dana.io/nfs-operator/internal/controller"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -37,14 +37,14 @@ var (
 var (
 	reconciler *controller.NfsPvcReconciler
 	request    reconcile.Request
-	nfspvc     *danaiov1.NfsPvc
+	nfspvc     *danaiov1alpha1.NfsPvc
 	ctx        context.Context
 	logger     logr.Logger
 )
 
 var _ = Describe("NfspvcController", func() {
 
-	np := &danaiov1.NfsPvc{}
+	np := &danaiov1alpha1.NfsPvc{}
 	ctx = context.Background()
 	Context("NfsPvc creation and deletion", func() {
 
@@ -58,12 +58,12 @@ var _ = Describe("NfspvcController", func() {
 				Log:    logger,
 			}
 
-			nfspvc = &danaiov1.NfsPvc{
+			nfspvc = &danaiov1alpha1.NfsPvc{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-nfspvc",
 					Namespace: "default",
 				},
-				Spec: danaiov1.NfsPvcSpec{
+				Spec: danaiov1alpha1.NfsPvcSpec{
 					AccessModes: defaultAccessMode,
 					Capacity:    defaultCapacity,
 					Path:        defaultPath,

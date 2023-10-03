@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.0
-  name: nfspvcs.dana.io.dana.io
+  name: nfspvcs.nfspvc.dana.io
 spec:
-  group: dana.io.dana.io
+  group: nfspvc.dana.io
   names:
     kind: NfsPvc
     listKind: NfsPvcList
@@ -14,7 +14,7 @@ spec:
     singular: nfspvc
   scope: Namespaced
   versions:
-  - name: v1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: NfsPvc is the Schema for the nfspvcs API
