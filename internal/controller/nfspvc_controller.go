@@ -52,126 +52,13 @@ const (
 	pvcBindStatusAnnotation = "pv.kubernetes.io/bind-completed"
 )
 
-func (r *NfsPvcReconciler) deleteAssociatedResources(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc) error {
-
-	pvName := nfspvc.Name + "-" + nfspvc.Namespace
-
-	// Delete the PersistentVolume
-	pv := &corev1.PersistentVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: pvName,
-		},
-	}
-	if err := r.Delete(ctx, pv); client.IgnoreNotFound(err) != nil {
-		return err
-	}
-
-	// Delete the PersistentVolumeClaim
-	pvc := &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      nfspvc.Name,
-			Namespace: nfspvc.Namespace,
-		},
-	}
-	if err := r.Delete(ctx, pvc); client.IgnoreNotFound(err) != nil {
-		return err
-	}
-
-	// Add more cleanup logic if needed...
-
-	return nil
-}
-
-func (r *NfsPvcReconciler) HandleDeletion(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc) error {
-	// Check if our finalizer is present
-
-	if nfspvcutils.ContainsString(nfspvc.ObjectMeta.Finalizers, NfsPvcFinalizerName) {
-		// Handle the actual cleanup of associated resources
-		if err := r.deleteAssociatedResources(ctx, nfspvc); err != nil {
-			return err
-		}
-
-		// Remove the finalizer after cleanup
-		nfspvc.ObjectMeta.Finalizers = nfspvcutils.RemoveString(nfspvc.ObjectMeta.Finalizers, NfsPvcFinalizerName)
-		if err := r.Update(ctx, nfspvc); err != nil {
-			return err
-		}
-
-	}
-	return nil
-}
-
-// HandleCreation handles the creation phase, including adding finalizers.
-func (r *NfsPvcReconciler) HandleCreation(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc) error {
-	// If PVC status is empty, set it to Pending
-	if nfspvc.Status.PvcStatus == "" {
-		nfspvc.Status.PvcStatus = danaiov1alpha1.PvcStatusPending
-		if err := r.Status().Update(ctx, nfspvc); err != nil {
-			return err
-		}
-	}
-
-	if !controllerutil.ContainsFinalizer(nfspvc, NfsPvcFinalizerName) {
-		controllerutil.AddFinalizer(nfspvc, NfsPvcFinalizerName)
-		return r.Update(ctx, nfspvc)
-	}
-	return nil
-}
-
-// HandleUpdate handles nfspvc edit situation
-func (r *NfsPvcReconciler) HandleUpdate(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc) error {
-	logger := r.Log
-	// I need to check if someone edited the nfspvc object
-	// first i will check if there are already bounded pv:
-	pvName := nfspvc.Name + "-" + nfspvc.Namespace
-	pv := &corev1.PersistentVolume{}
-	err := r.Get(ctx, types.NamespacedName{Name: pvName}, pv)
-
-	if err == nil && pv.ObjectMeta.DeletionTimestamp.IsZero() {
-		// the pv exists so i need to compare the nfspvc relevant field which are:
-		// accessmodes, capacity, path, server
-		// with the pv and check if there is a difference
-		// if there is a difference it means that the nfspvc was updated
-		pvAccessModes := pv.Spec.AccessModes[0]
-		pvCapacity := pv.Spec.Capacity.Storage()
-		pvPath := pv.Spec.NFS.Path
-		pvServer := pv.Spec.NFS.Server
-		logger.Info("hello", "pvAccessModes", pvAccessModes != nfspvc.Spec.AccessModes[0], "nfsPvAccessModes", pvCapacity != nfspvc.Spec.Capacity.Storage())
-		isNfsPvcUpdated := pvAccessModes != nfspvc.Spec.AccessModes[0] ||
-			!nfspvc.Spec.Capacity.Storage().Equal(*pvCapacity) ||
-			pvPath != nfspvc.Spec.Path ||
-			pvServer != nfspvc.Spec.Server
-		logger.Info("hello2", "isNfsPvcUpdated", isNfsPvcUpdated)
-		// if the nfspvc object was updated then delete the pv and pvc,
-		// this deletion will trigger pv and pvc recreation with the new fields
-		if isNfsPvcUpdated {
-			r.deleteAssociatedResources(ctx, nfspvc)
-		}
-	}
-	return nil
-}
-
-func (r *NfsPvcReconciler) HandleExistingPv(ctx context.Context, pv *corev1.PersistentVolume) error {
-
-	// If pv is in failed status then delete it which will trigger recreation of the pv
-	if pv.Status.Phase == "Failed" {
-		if err := r.Delete(ctx, pv); client.IgnoreNotFound(err) != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (r *NfsPvcReconciler) HandleExistingPvc(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
-	// If pvc is lost and was already bind delete the annotation
-	bindStatus, ok := pvc.ObjectMeta.Annotations[pvcBindStatusAnnotation]
-	if pvc.Status.Phase == "Lost" && ok && bindStatus == "yes" {
-		delete(pvc.ObjectMeta.Annotations, pvcBindStatusAnnotation)
-		return r.Update(ctx, pvc)
-	}
-
-	return nil
+// SetupWithManager sets up the controller with the Manager.
+func (r *NfsPvcReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&danaiov1alpha1.NfsPvc{}).
+		Watches(&corev1.PersistentVolume{}, handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromPersistentVolume)).
+		Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromPersistentVolumeClaim)).
+		Complete(r)
 }
 
 //+kubebuilder:rbac:groups="",resources=persistentvolumes,verbs=get;list;watch;create;update;delete
@@ -192,30 +79,16 @@ func (r *NfsPvcReconciler) HandleExistingPvc(ctx context.Context, pvc *corev1.Pe
 
 func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.Log
-	var nfspvcFetched bool
 	// Fetch the NfsPvc instance
 	nfspvc := &danaiov1alpha1.NfsPvc{}
 	err := r.Get(ctx, req.NamespacedName, nfspvc)
 
-	if err == nil {
-		nfspvcFetched = true
-	}
-
-	defer func() {
-		if err != nil && nfspvcFetched {
-			nfspvc.Status.PvcStatus = danaiov1alpha1.PvcStatusError
-			updateErr := r.Status().Update(ctx, nfspvc)
-			if updateErr != nil {
-				logger.Error(updateErr, "Failed to update NfsPvc status to error.")
-			}
-		}
-	}()
+	defer r.handleReconcileError(ctx, nfspvc, err)
 
 	// Handle the error if any during the fetch
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// If the resource is not found, it might've been deleted after the reconcile request.
-			// You can choose to log this if needed.
 			logger.Info("NfsPvc resource not found. Ignoring since object must've been deleted.")
 			return ctrl.Result{}, nil
 		}
@@ -227,7 +100,7 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// examine DeletionTimestamp to determine if object is under deletion
 	if !nfspvc.ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is being deleted
-		if err := r.HandleDeletion(ctx, nfspvc); err != nil {
+		if err := HandleDeletion(ctx, nfspvc, r); err != nil {
 			logger.Error(err, "Failed to handle deletion") // Logging the error
 			return ctrl.Result{}, err
 		}
@@ -239,14 +112,14 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// The object is not being deleted, so if it does not have our finalizer,
 	// then lets add the finalizer and update the object. This is equivalent
 	// registering our finalizer.
-	if err := r.HandleCreation(ctx, nfspvc); err != nil {
+	if err := HandleCreation(ctx, nfspvc, r); err != nil {
 		logger.Error(err, "Failed to handle creation") // Logging the error
 		return ctrl.Result{}, err
 	}
 
 	logger.Info("after handle creation")
 
-	if err := r.HandleUpdate(ctx, nfspvc); err != nil {
+	if err := HandleUpdate(ctx, nfspvc, r); err != nil {
 		logger.Error(err, "Failed to handle Update") // Logging the error
 		return ctrl.Result{}, err
 	}
@@ -328,16 +201,173 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolume(ctx context.Context, o client.Object) []reconcile.Request {
+// Delete the pv associated to the NfsPvc
+func (r *NfsPvcReconciler) deletePv(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc) error {
+	pvName := nfspvc.Name + "-" + nfspvc.Namespace
+
+	// Delete the PersistentVolume
+	pv := &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: pvName,
+		},
+	}
+	if err := r.Delete(ctx, pv); client.IgnoreNotFound(err) != nil {
+		return err
+	}
+
+	return nil
+}
+
+// This function responsible to handle errors in the reconcile in update the NfsPvc accordingly
+func (r *NfsPvcReconciler) handleReconcileError(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc, err error) {
+	logger := r.Log
+	if err != nil {
+		nfspvc.Status.PvcStatus = danaiov1alpha1.PvcStatusError
+		updateErr := r.Status().Update(ctx, nfspvc)
+		if updateErr != nil {
+			logger.Error(updateErr, "Failed to update NfsPvc status to error.")
+		}
+	}
+}
+
+// Delete the pvc associated to the NfsPvc
+func (r *NfsPvcReconciler) deletePvc(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc) error {
+	// Delete the PersistentVolumeClaim
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nfspvc.Name,
+			Namespace: nfspvc.Namespace,
+		},
+	}
+	if err := r.Delete(ctx, pvc); client.IgnoreNotFound(err) != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Delete resources that the NfsPvc is responsible for: pv and pvc
+func deleteAssociatedResources(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc, r *NfsPvcReconciler) error {
+
+	if err := r.deletePv(ctx, nfspvc); err != nil {
+		return err
+	}
+
+	if err := r.deletePvc(ctx, nfspvc); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Handle the deletion phase of the NfsPvc object.
+func HandleDeletion(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc, r *NfsPvcReconciler) error {
+
+	// Check if our finalizer is present
+	if nfspvcutils.ContainsString(nfspvc.ObjectMeta.Finalizers, NfsPvcFinalizerName) {
+		// Handle the actual cleanup of associated resources
+		if err := deleteAssociatedResources(ctx, nfspvc, r); err != nil {
+			return err
+		}
+
+		// Remove the finalizer after cleanup
+		nfspvc.ObjectMeta.Finalizers = nfspvcutils.RemoveString(nfspvc.ObjectMeta.Finalizers, NfsPvcFinalizerName)
+		if err := r.Update(ctx, nfspvc); err != nil {
+			return err
+		}
+
+	}
+	return nil
+}
+
+// HandleCreation handles the creation phase, including adding finalizers.
+func HandleCreation(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc, r *NfsPvcReconciler) error {
+	// If PVC status is empty, set it to Pending
+	if nfspvc.Status.PvcStatus == "" {
+		nfspvc.Status.PvcStatus = danaiov1alpha1.PvcStatusPending
+		if err := r.Status().Update(ctx, nfspvc); err != nil {
+			return err
+		}
+	}
+
+	if !controllerutil.ContainsFinalizer(nfspvc, NfsPvcFinalizerName) {
+		controllerutil.AddFinalizer(nfspvc, NfsPvcFinalizerName)
+		return r.Update(ctx, nfspvc)
+	}
+	return nil
+}
+
+// HandleUpdate handles nfspvc edit situation
+func HandleUpdate(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc, r *NfsPvcReconciler) error {
+	// I need to check if someone edited the nfspvc object
+	// first i will check if there are already bounded pv:
+	pvName := nfspvc.Name + "-" + nfspvc.Namespace
+	pv := &corev1.PersistentVolume{}
+	err := r.Get(ctx, types.NamespacedName{Name: pvName}, pv)
+
+	if client.IgnoreNotFound(err) != nil {
+		return err
+	}
+
+	if err == nil && pv.ObjectMeta.DeletionTimestamp.IsZero() {
+		// the pv exists so i need to compare the nfspvc relevant field which are:
+		// accessmodes, capacity, path, server
+		// with the pv and check if there is a difference
+		// if there is a difference it means that the nfspvc was updated
+		pvAccessModes := pv.Spec.AccessModes[0]
+		pvCapacity := pv.Spec.Capacity.Storage()
+		pvPath := pv.Spec.NFS.Path
+		pvServer := pv.Spec.NFS.Server
+		isNfsPvcUpdated := pvAccessModes != nfspvc.Spec.AccessModes[0] ||
+			!nfspvc.Spec.Capacity.Storage().Equal(*pvCapacity) ||
+			pvPath != nfspvc.Spec.Path ||
+			pvServer != nfspvc.Spec.Server
+		// if the nfspvc object was updated then delete the pv and pvc,
+		// this deletion will trigger pv and pvc recreation with the new fields
+		if isNfsPvcUpdated {
+			deleteAssociatedResources(ctx, nfspvc, r)
+		}
+	}
+
+	return nil
+}
+
+// This function handles the scenario where the pv associated with the nfspvc is already exists
+func (r *NfsPvcReconciler) HandleExistingPv(ctx context.Context, pv *corev1.PersistentVolume) error {
+
+	// If pv is in failed status then delete it which will trigger recreation of the pv
+	if pv.Status.Phase == "Failed" {
+		if err := r.Delete(ctx, pv); client.IgnoreNotFound(err) != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// This function handles the scenario where the pvc associated with the nfspvc is already exists
+func (r *NfsPvcReconciler) HandleExistingPvc(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
+	// If pvc is lost and was already bind delete the annotation
+	bindStatus, ok := pvc.ObjectMeta.Annotations[pvcBindStatusAnnotation]
+	if pvc.Status.Phase == "Lost" && ok && bindStatus == "yes" {
+		delete(pvc.ObjectMeta.Annotations, pvcBindStatusAnnotation)
+		return r.Update(ctx, pvc)
+	}
+
+	return nil
+}
+
+// This function triggers reconcile on the nfspvc when the associated pv changes
+func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolume(ctx context.Context, object client.Object) []reconcile.Request {
 	logger := log.FromContext(ctx)
-	persistentvolume := o.(*corev1.PersistentVolume)
+	pv := object.(*corev1.PersistentVolume)
 	var requests []reconcile.Request
 
 	// pvName is determined this way: nfspvc.Name + "-" + nfspvc.Namespace
-	// so in order to find out the name of the related nfspvc and namespace i will split the name
-	// of the pv by '-'
+	// so in order to find out the name of the related nfspvc and namespace the name
+	// of the pv is splited by '-'
 
-	pvName := persistentvolume.ObjectMeta.Name
+	pvName := pv.ObjectMeta.Name
 
 	splitedPvName := strings.Split(pvName, "-")
 
@@ -358,18 +388,19 @@ func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolume(ctx context.Conte
 	return requests
 }
 
-func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolumeClaim(ctx context.Context, o client.Object) []reconcile.Request {
+// This function triggers reconcile on the nfspvc when the associated pvc changes
+func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolumeClaim(ctx context.Context, object client.Object) []reconcile.Request {
 	logger := log.FromContext(ctx)
-	persistentvolumeClaim := o.(*corev1.PersistentVolumeClaim)
+	pvc := object.(*corev1.PersistentVolumeClaim)
 	var requests []reconcile.Request
 
 	// pvName is determined this way: nfspvc.Name + "-" + nfspvc.Namespace
 	// so in order to find out the name of the related nfspvc and namespace i will split the name
 	// of the pv by '-'
 
-	nfspvcName := persistentvolumeClaim.Name
+	nfspvcName := pvc.Name
 
-	nfspvcNamespace := persistentvolumeClaim.Namespace
+	nfspvcNamespace := pvc.Namespace
 
 	requests = append(requests, reconcile.Request{
 		NamespacedName: types.NamespacedName{
@@ -382,13 +413,4 @@ func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolumeClaim(ctx context.
 	logger.Info("Enqueued requests for namespace", "Namespace", nfspvcNamespace, "nfspvc Name", nfspvcName)
 
 	return requests
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *NfsPvcReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&danaiov1alpha1.NfsPvc{}).
-		Watches(&corev1.PersistentVolume{}, handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromPersistentVolume)).
-		Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromPersistentVolumeClaim)).
-		Complete(r)
 }

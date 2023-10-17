@@ -35,7 +35,7 @@ spec:
             description: NfsPvcSpec defines the desired state of NfsPvc
             properties:
               accessModes:
-                description: accessmodes is the type of the access on the pvc RWX,
+                description: AccessModes is the type of the access on the pvc RWX,
                   RWo, ROX
                 items:
                   type: string
@@ -47,13 +47,13 @@ spec:
                   - type: string
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
-                description: capacity is for the size of the nfs
+                description: Capacity is for the size of the nfs
                 type: object
               path:
-                description: path is the path of the nfs volume
+                description: Path is the path of the nfs volume
                 type: string
               server:
-                description: the server that store you nfs
+                description: Server is where you store you nfs
                 type: string
             required:
             - path
@@ -63,9 +63,7 @@ spec:
             description: NfsPvcStatus defines the observed state of NfsPvc
             properties:
               pvcStatus:
-                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
-                  of cluster Important: Run "make" to regenerate code after modifying
-                  this file'
+                description: PvcStatus is the current status of the NfsPvc object
                 type: string
             required:
             - pvcStatus
