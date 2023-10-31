@@ -62,11 +62,9 @@ spec:
           status:
             description: NfsPvcStatus defines the observed state of NfsPvc
             properties:
-              pvcStatus:
+              pvcPhase:
                 description: PvcStatus is the current status of the NfsPvc object
                 type: string
-            required:
-            - pvcStatus
             type: object
         type: object
     served: true

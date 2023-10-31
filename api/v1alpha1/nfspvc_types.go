@@ -29,24 +29,16 @@ type NfsPvcSpec struct {
 	// Capacity is for the size of the nfs
 	Capacity corev1.ResourceList `json:"capacity,omitempty" protobuf:"bytes,1,rep,name=capacity,casttype=ResourceList,castkey=ResourceName"`
 	// Path is the path of the nfs volume
-	Path string `json:"path"`
+	Path string `json:"path" protobuf:"bytes,2,opt,name=path"`
 	// Server is where you store you nfs
-	Server string `json:"server"`
+	Server string `json:"server" protobuf:"bytes,1,opt,name=server"`
 }
 
 // NfsPvcStatus defines the observed state of NfsPvc
 type NfsPvcStatus struct {
 	// PvcStatus is the current status of the NfsPvc object
-	PvcStatus PvcCreationStatus `json:"pvcStatus"`
+	PvcPhase string `json:"pvcPhase,omitempty" protobuf:"bytes,3,opt,name=pvcPhase"`
 }
-
-type PvcCreationStatus string
-
-const (
-	PvcStatusPending PvcCreationStatus = "Pending"
-	PvcStatusCreated PvcCreationStatus = "Created"
-	PvcStatusError   PvcCreationStatus = "Error"
-)
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
