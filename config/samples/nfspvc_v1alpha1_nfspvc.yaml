@@ -2,12 +2,12 @@ apiVersion: nfspvc.dana.io/v1alpha1
 kind: NfsPvc
 metadata:
   labels:
-    app.kubernetes.io/name: nfspvc4
-    app.kubernetes.io/instance: nfspvc-sample4
+    app.kubernetes.io/name: test1
+    app.kubernetes.io/instance: test1
     app.kubernetes.io/part-of: nfs-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: nfs-operator
-  name: nfspvc-sample4
+  name: test1
 spec:
   accessModes:
     - ReadWriteOnce

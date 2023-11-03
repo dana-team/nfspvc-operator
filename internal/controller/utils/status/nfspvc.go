@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	PvcPhaseUnknown = "Unknown"
+	StoragePhaseUnknown  = "Unknown"
+	StoragePhaseNotFound = "NotFound"
 )
 
 func SyncNfsPvcStatus(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
@@ -28,25 +29,52 @@ func SyncNfsPvcStatus(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log log
 		return fmt.Errorf("failed to get NfsPvc: %s", err.Error())
 	}
 
-	pvc := corev1.PersistentVolumeClaim{}
+	pvcPhase := getPvcStatus(ctx, nfspvc, k8sClient)
+	pvPhase := getPvStatus(ctx, nfspvc, k8sClient)
 
-	pvcPhase := ""
-	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); err != nil {
-		if errors.IsNotFound(err) {
-			pvcPhase = PvcPhaseUnknown
-		} else {
-			return fmt.Errorf("failed to fetch Pvc: %s", err.Error())
-		}
-	} else {
-		pvcPhase = string(pvc.Status.Phase)
-	}
-
-	if pvcPhase != "" && pvcPhase != PvcPhaseUnknown && nfspvcObject.Status.PvcPhase != pvcPhase {
+	if pvcPhase != nfspvc.Status.PvcPhase || pvPhase != nfspvc.Status.PvPhase {
 		nfspvcObject.Status.PvcPhase = pvcPhase
+		nfspvcObject.Status.PvPhase = pvPhase
 		if err := k8sClient.Status().Update(ctx, &nfspvcObject); err != nil {
 			return fmt.Errorf("failed to update NfsPvc status: %s", err.Error())
 		}
 	}
 
 	return nil
+}
+
+// getPvcStatus return the Pvc's Phase
+func getPvcStatus(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient client.Client) string {
+
+	pvc := corev1.PersistentVolumeClaim{}
+	pvcPhase := ""
+	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); err != nil {
+		if errors.IsNotFound(err) {
+			pvcPhase = StoragePhaseNotFound
+		} else {
+			pvcPhase = StoragePhaseUnknown
+		}
+	} else {
+		pvcPhase = string(pvc.Status.Phase)
+	}
+
+	return pvcPhase
+}
+
+// getPvStatus return the Pv's Phase
+func getPvStatus(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient client.Client) string {
+
+	pv := corev1.PersistentVolume{}
+	pvPhase := ""
+	if err := k8sClient.Get(ctx, types.NamespacedName{Name: nfspvc.Name + "-" + nfspvc.Namespace + "-pv"}, &pv); err != nil {
+		if errors.IsNotFound(err) {
+			pvPhase = StoragePhaseNotFound
+		} else {
+			pvPhase = StoragePhaseUnknown
+		}
+	} else {
+		pvPhase = string(pv.Status.Phase)
+	}
+
+	return pvPhase
 }

@@ -3,7 +3,6 @@ package sync
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	danaiov1alpha1 "dana.io/nfs-operator/api/v1alpha1"
 	status_utils "dana.io/nfs-operator/internal/controller/utils/status"
@@ -12,19 +11,22 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	NfsPvcDanaLabel   = "nfspvc.dana.io/nfspvc-owner"
-	StorageClassBrown = "brown"
-	PvFailedPhase     = "Failed"
+	NfsPvcDanaLabel         = "nfspvc.dana.io/nfspvc-owner"
+	StorageClassBrown       = "brown"
+	PvcBindStatusAnnotation = "pv.kubernetes.io/bind-completed"
 )
 
 func SyncNfsPvc(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
 
-	if err := createOrUpdateStorageObjects(ctx, nfspvc, log, k8sClient); err != nil {
-		return err
+	if nfspvc.ObjectMeta.DeletionTimestamp == nil {
+		if err := createOrUpdateStorageObjects(ctx, nfspvc, log, k8sClient); err != nil {
+			return err
+		}
 	}
 
 	if err := status_utils.SyncNfsPvcStatus(ctx, nfspvc, log, k8sClient); err != nil {
@@ -40,27 +42,12 @@ func createOrUpdateStorageObjects(ctx context.Context, nfspvc danaiov1alpha1.Nfs
 		return err
 	}
 
-	pvc := corev1.PersistentVolumeClaim{}
-	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); err != nil {
-		if errors.IsNotFound(err) {
-			pvcFromNfsPvc := preparePvc(nfspvc)
-			if err := k8sClient.Create(ctx, &pvcFromNfsPvc); err != nil {
-				return fmt.Errorf("failed to create pvc: %s", err.Error())
-			}
-			return nil
-		} else {
-			return fmt.Errorf("failed to fetch pvc: %s", err.Error())
-		}
-	} else {
-		if !reflect.DeepEqual(nfspvc.Spec.Capacity, pvc.Spec.Resources.Requests) {
-			pvc.Spec.Resources.Requests = nfspvc.Spec.Capacity
-			if err := k8sClient.Update(ctx, &pvc); err != nil {
-				return fmt.Errorf("unable to update Pvc of NfsPvc: %s", err.Error())
-			}
-			return nil
-		}
-		return nil
+	if err := handlePvcState(ctx, nfspvc, log, k8sClient); err != nil {
+		return err
 	}
+
+	return nil
+
 }
 
 func handlePvState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
@@ -75,19 +62,68 @@ func handlePvState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.L
 		if err := k8sClient.Create(ctx, &pvFromNfsPvc); err != nil {
 			return fmt.Errorf("failed to create pv: %s", err.Error())
 		}
+		return nil
 	}
 
-	if PvFailedPhase == pv.Status.Phase {
-		if pv.ObjectMeta.DeletionTimestamp == nil{
-			if err := k8sClient.Delete(ctx, &pv); client.IgnoreNotFound(err) != nil {
-				return err
+	if pv.Status.Phase == corev1.VolumeReleased || pv.Status.Phase == corev1.VolumeFailed ||
+		(nfspvc.Status.PvPhase == string(corev1.VolumeBound) && nfspvc.Status.PvcPhase == string(corev1.ClaimPending)) {
+
+		claimRefForPv := &corev1.ObjectReference{
+			Name:      nfspvc.Name,
+			Namespace: nfspvc.Namespace,
+			Kind:      corev1.ResourcePersistentVolumeClaims.String(),
+		}
+		pv.Spec.ClaimRef = claimRefForPv
+		// Use retry on conflict to update the CRQ
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			updateErr := k8sClient.Update(ctx, &pv)
+			if errors.IsConflict(updateErr) {
+				// Conflict occurred, let's re-fetch the latest version of CRQ and retry the update
+				if getErr := k8sClient.Get(ctx, types.NamespacedName{Name: nfspvc.Name + "-" + nfspvc.Namespace + "-pv"}, &pv); getErr != nil {
+					return getErr
+				}
 			}
-		}else{
-			//to do reque
-			//adding pv is exist status
-		}		
+			return updateErr
+		})
+		return err
+	}
+	return nil
+}
+
+func handlePvcState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
+
+	pvc := corev1.PersistentVolumeClaim{}
+	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); err != nil {
+		if errors.IsNotFound(err) {
+			pvcFromNfsPvc := preparePvc(nfspvc)
+			if err := k8sClient.Create(ctx, &pvcFromNfsPvc); err != nil {
+				return fmt.Errorf("failed to create pvc: %s", err.Error())
+			}
+			return nil
+		} else {
+			return fmt.Errorf("failed to fetch pvc: %s", err.Error())
+		}
 	}
 
+	if pvc.Status.Phase == corev1.ClaimLost {
+		bindStatus, ok := pvc.ObjectMeta.Annotations[PvcBindStatusAnnotation]
+		if ok && bindStatus == "yes" {
+			delete(pvc.ObjectMeta.Annotations, PvcBindStatusAnnotation)
+			// Use retry on conflict to update the CRQ
+			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				updateErr := k8sClient.Update(ctx, &pvc)
+				if errors.IsConflict(updateErr) {
+					// Conflict occurred, let's re-fetch the latest version of CRQ and retry the update
+					if getErr := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); getErr != nil {
+						return getErr
+					}
+				}
+				return updateErr
+			})
+			return err
+		}
+		return nil
+	}
 	return nil
 }
 
@@ -127,7 +163,7 @@ func preparePv(nfspvc danaiov1alpha1.NfsPvc) corev1.PersistentVolume {
 			StorageClassName:              StorageClassBrown,
 			Capacity:                      nfspvc.Spec.Capacity,
 			AccessModes:                   nfspvc.Spec.AccessModes,
-			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
 			ClaimRef: &corev1.ObjectReference{
 				Name:      nfspvc.Name,
 				Namespace: nfspvc.Namespace,

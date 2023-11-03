@@ -15,6 +15,15 @@ import (
 
 const FinalizerDeletionNfsPVc = "nfspvc.dana.io/nfspvc-protection"
 
+type FailedCleanUpError struct {
+	Message string
+}
+
+// Error implements the error interface for FailedCleanUpError.
+func (e *FailedCleanUpError) Error() string {
+	return e.Message
+}
+
 func HandleResourceDeletion(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) (error, bool) {
 	if nfspvc.ObjectMeta.DeletionTimestamp != nil {
 		if controllerutil.ContainsFinalizer(&nfspvc, FinalizerDeletionNfsPVc) {
@@ -39,12 +48,17 @@ func HandleResourceDeletion(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, l
 			}
 			if pvDeleted && pvcDeleted {
 				return RemoveFinalizer(ctx, nfspvc, log, k8sClient), true
+			} else if !pvDeleted && pvcDeleted {
+				pvName := nfspvc.Name + "-" + nfspvc.Namespace + "-pv"
+				return &FailedCleanUpError{Message: "the pv " + pvName + " is not deleted yet"}, false
 			}
 
 			//delete the pv and pvc
 			if err := nfsPvcCleanUp(ctx, nfspvc, log, k8sClient); err != nil {
 				return err, false
 			}
+		} else {
+			return nil, true
 		}
 	}
 	return nil, false
@@ -66,6 +80,7 @@ func nfsPvcCleanUp(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.L
 	return nil
 }
 
+// deleteResource get resource to delete and delete that resource from the cluster
 func deleteResource(ctx context.Context, namespacedName types.NamespacedName, resource client.Object, log logr.Logger, k8sClient client.Client) error {
 
 	if err := k8sClient.Get(ctx, namespacedName, resource); err != nil {
@@ -75,13 +90,14 @@ func deleteResource(ctx context.Context, namespacedName types.NamespacedName, re
 		}
 		return nil
 	}
-	if err := k8sClient.Delete(ctx, resource); err != nil {
+	if err := k8sClient.Delete(ctx, resource); client.IgnoreNotFound(err) != nil {
 		log.Error(err, "unable to delete resource")
 		return err
 	}
 	return nil
 }
 
+// removeFinalizer remove the dana finalizer from the nfspvc object
 func RemoveFinalizer(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
 	controllerutil.RemoveFinalizer(&nfspvc, FinalizerDeletionNfsPVc)
 	if err := k8sClient.Update(ctx, &nfspvc); err != nil {

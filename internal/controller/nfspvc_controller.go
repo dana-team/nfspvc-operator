@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -45,12 +46,6 @@ type NfsPvcReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 }
-
-//const (
-//	nfsPvcAnnotation        = "nfspvc.dana.io/nfspvc-name"
-//	NfsPvcFinalizerName     = "nfspvc.dana.io/finalizer"
-//	pvcBindStatusAnnotation = "pv.kubernetes.io/bind-completed"
-//)
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *NfsPvcReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -95,6 +90,11 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	err, deleted := finalizer_utils.HandleResourceDeletion(ctx, nfspvc, logger, r.Client)
 	if err != nil {
+		if failedToCleanUpErr, ok := err.(*finalizer_utils.FailedCleanUpError); ok {
+			// This means the error is of type *FailedCleanUpError
+			logger.Info(fmt.Sprintf("failed to handle NfsPvc deletion: %s, so trying again in a few seconds", failedToCleanUpErr.Message))
+			return ctrl.Result{RequeueAfter: time.Second * 4}, nil
+		}
 		return ctrl.Result{}, fmt.Errorf("failed to handle NfsPvc deletion: %s", err.Error())
 	}
 	if deleted {
@@ -118,7 +118,6 @@ func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolumeClaim(ctx context.
 
 	nfspvcList := &danaiov1alpha1.NfsPvcList{}
 	listOps := &client.ListOptions{
-		//FieldSelector: fields.OneTermEqualSelector(".metadata.name", pvc.GetName()),
 		Namespace: pvc.GetNamespace(),
 	}
 	err := r.List(ctx, nfspvcList, listOps)
@@ -128,12 +127,18 @@ func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolumeClaim(ctx context.
 
 	requests := make([]reconcile.Request, len(nfspvcList.Items))
 	for i, item := range nfspvcList.Items {
-		requests[i] = reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      item.GetName(),
-				Namespace: item.GetNamespace(),
-			},
+		if item.GetName() == pvc.GetName() {
+			requests[i] = reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      item.GetName(),
+					Namespace: item.GetNamespace(),
+				},
+			}
 		}
+	}
+
+	if len(requests) == 0 {
+		return []reconcile.Request{}
 	}
 	return requests
 }

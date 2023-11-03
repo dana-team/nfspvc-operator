@@ -38,6 +38,7 @@ type NfsPvcSpec struct {
 type NfsPvcStatus struct {
 	// PvcStatus is the current status of the NfsPvc object
 	PvcPhase string `json:"pvcPhase,omitempty" protobuf:"bytes,3,opt,name=pvcPhase"`
+	PvPhase  string `json:"pvPhase,omitempty" protobuf:"bytes,3,opt,name=pvPhase"`
 }
 
 //+kubebuilder:object:root=true
