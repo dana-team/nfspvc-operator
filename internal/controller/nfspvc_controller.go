@@ -75,7 +75,6 @@ func (r *NfsPvcReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.15.0/pkg/reconcile
 
 func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-
 	logger := log.FromContext(ctx).WithValues("NfsPvc", req.Name, "NfsPvcNamespace", req.Namespace)
 	logger.Info("Starting Reconcile")
 
@@ -113,9 +112,8 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 }
 
-// This function triggers reconcile on the nfspvc when the associated pvc changes
+// enqueueRequestsFromPersistentVolumeClaim reconciles the nfspvc when the associated pvc changes
 func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolumeClaim(ctx context.Context, pvc client.Object) []reconcile.Request {
-
 	nfspvcList := &danaiov1alpha1.NfsPvcList{}
 	listOps := &client.ListOptions{
 		Namespace: pvc.GetNamespace(),

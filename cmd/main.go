@@ -33,6 +33,7 @@ import (
 
 	nfspvcv1alpha1 "dana.io/nfs-operator/api/v1alpha1"
 	"dana.io/nfs-operator/internal/controller"
+	utils "dana.io/nfs-operator/internal/controller/utils"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -86,6 +87,15 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	if !utils.IsEnvironmentVariablesExist() {
+		setupLog.Error(err, "failed to get configuration environment variable")
+		os.Exit(1)
+	}
+	if !utils.IsReclaimPolicyValid(os.Getenv("RECLAIM_POLICY")) {
+		setupLog.Error(err, "invalid default Persistent Volume Reclaim Policy")
 		os.Exit(1)
 	}
 

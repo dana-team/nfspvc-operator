@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"os"
+
 	danaiov1alpha1 "dana.io/nfs-operator/api/v1alpha1"
 	status_utils "dana.io/nfs-operator/internal/controller/utils/status"
 	"github.com/go-logr/logr"
@@ -17,12 +19,13 @@ import (
 
 const (
 	NfsPvcDanaLabel         = "nfspvc.dana.io/nfspvc-owner"
-	StorageClassBrown       = "brown"
 	PvcBindStatusAnnotation = "pv.kubernetes.io/bind-completed"
 )
 
-func SyncNfsPvc(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
+var StorageClass = os.Getenv("STORAGE_CLASS")
+var ReclaimPolicy = os.Getenv("RECLAIM_POLICY")
 
+func SyncNfsPvc(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
 	if nfspvc.ObjectMeta.DeletionTimestamp == nil {
 		if err := createOrUpdateStorageObjects(ctx, nfspvc, log, k8sClient); err != nil {
 			return err
@@ -37,7 +40,6 @@ func SyncNfsPvc(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logg
 }
 
 func createOrUpdateStorageObjects(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
-
 	if err := handlePvState(ctx, nfspvc, log, k8sClient); err != nil {
 		return err
 	}
@@ -51,7 +53,6 @@ func createOrUpdateStorageObjects(ctx context.Context, nfspvc danaiov1alpha1.Nfs
 }
 
 func handlePvState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
-
 	pv := corev1.PersistentVolume{}
 	if err := k8sClient.Get(ctx, types.NamespacedName{Name: nfspvc.Name + "-" + nfspvc.Namespace + "-pv"}, &pv); err != nil {
 		if !errors.IsNotFound(err) {
@@ -74,11 +75,11 @@ func handlePvState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.L
 			Kind:      corev1.ResourcePersistentVolumeClaims.String(),
 		}
 		pv.Spec.ClaimRef = claimRefForPv
-		// Use retry on conflict to update the CRQ
+		// Use retry on conflict to update the PV
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			updateErr := k8sClient.Update(ctx, &pv)
 			if errors.IsConflict(updateErr) {
-				// Conflict occurred, let's re-fetch the latest version of CRQ and retry the update
+				// Conflict occurred, let's re-fetch the latest version of PV and retry the update
 				if getErr := k8sClient.Get(ctx, types.NamespacedName{Name: nfspvc.Name + "-" + nfspvc.Namespace + "-pv"}, &pv); getErr != nil {
 					return getErr
 				}
@@ -91,7 +92,6 @@ func handlePvState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.L
 }
 
 func handlePvcState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
-
 	pvc := corev1.PersistentVolumeClaim{}
 	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); err != nil {
 		if errors.IsNotFound(err) {
@@ -105,15 +105,15 @@ func handlePvcState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.
 		}
 	}
 
-	if pvc.Status.Phase == corev1.ClaimLost {
+	if pvc.Status.Phase == corev1.ClaimLost { //if the pvc's phase is 'lost', so probably the associated pv was deleted. In order to fix that the "bind" annotation needs to be deleted.
 		bindStatus, ok := pvc.ObjectMeta.Annotations[PvcBindStatusAnnotation]
 		if ok && bindStatus == "yes" {
 			delete(pvc.ObjectMeta.Annotations, PvcBindStatusAnnotation)
-			// Use retry on conflict to update the CRQ
+			// Use retry on conflict to update the PVC
 			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				updateErr := k8sClient.Update(ctx, &pvc)
 				if errors.IsConflict(updateErr) {
-					// Conflict occurred, let's re-fetch the latest version of CRQ and retry the update
+					// Conflict occurred, let's re-fetch the latest version of PVC and retry the update
 					if getErr := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); getErr != nil {
 						return getErr
 					}
@@ -128,7 +128,7 @@ func handlePvcState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.
 }
 
 func preparePvc(nfspvc danaiov1alpha1.NfsPvc) corev1.PersistentVolumeClaim {
-	storageClass := StorageClassBrown
+	storageClass := StorageClass
 	pvc := corev1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
@@ -160,10 +160,10 @@ func preparePv(nfspvc danaiov1alpha1.NfsPvc) corev1.PersistentVolume {
 			},
 		},
 		Spec: corev1.PersistentVolumeSpec{
-			StorageClassName:              StorageClassBrown,
+			StorageClassName:              StorageClass,
 			Capacity:                      nfspvc.Spec.Capacity,
 			AccessModes:                   nfspvc.Spec.AccessModes,
-			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimPolicy(ReclaimPolicy),
 			ClaimRef: &corev1.ObjectReference{
 				Name:      nfspvc.Name,
 				Namespace: nfspvc.Namespace,
