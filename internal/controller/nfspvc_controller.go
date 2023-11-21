@@ -40,6 +40,8 @@ import (
 	sync_utils "dana.io/nfs-operator/internal/controller/utils/sync"
 )
 
+const REQUEUE_INTERVAL_SECONDS = 4
+
 // NfsPvcReconciler reconciles a NfsPvc object
 type NfsPvcReconciler struct {
 	client.Client
@@ -89,10 +91,10 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	err, deleted := finalizer_utils.HandleResourceDeletion(ctx, nfspvc, logger, r.Client)
 	if err != nil {
-		if failedToCleanUpErr, ok := err.(*finalizer_utils.FailedCleanUpError); ok {
-			// This means the error is of type *FailedCleanUpError
-			logger.Info(fmt.Sprintf("failed to handle NfsPvc deletion: %s, so trying again in a few seconds", failedToCleanUpErr.Message))
-			return ctrl.Result{RequeueAfter: time.Second * 4}, nil
+		if finalizer_utils.IsFailedCleanUp(err) {
+			// this means the error is of type *FailedCleanUpError.
+			logger.Info(fmt.Sprintf("failed to handle NfsPvc deletion: %s, so trying again in a few seconds", err.Error()))
+			return ctrl.Result{RequeueAfter: time.Second * REQUEUE_INTERVAL_SECONDS}, nil
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to handle NfsPvc deletion: %s", err.Error())
 	}
@@ -103,7 +105,7 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, fmt.Errorf("failed to ensure finalizer in Capp: %s", err.Error())
 	}
 
-	//now sync the objects to the nfspvc object
+	// now sync the objects to the nfspvc object.
 	if err := sync_utils.SyncNfsPvc(ctx, nfspvc, logger, r.Client); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to sync NfsPvc: %s", err.Error())
 	}
@@ -112,7 +114,7 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 }
 
-// enqueueRequestsFromPersistentVolumeClaim reconciles the nfspvc when the associated pvc changes
+// enqueueRequestsFromPersistentVolumeClaim reconciles the nfspvc when the associated pvc changes.
 func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolumeClaim(ctx context.Context, pvc client.Object) []reconcile.Request {
 	nfspvcList := &danaiov1alpha1.NfsPvcList{}
 	listOps := &client.ListOptions{

@@ -32,11 +32,11 @@ spec:
           metadata:
             type: object
           spec:
-            description: NfsPvcSpec defines the desired state of NfsPvc
+            description: NfsPvcSpec defines the desired state of NfsPvc.
             properties:
               accessModes:
-                description: AccessModes is the type of the access on the pvc RWX,
-                  RWo, ROX
+                description: accessModes contains the desired access modes the volume
+                  should have(RWX, RWO, ROX).
                 items:
                   type: string
                 type: array
@@ -47,25 +47,28 @@ spec:
                   - type: string
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
-                description: Capacity is for the size of the nfs
+                description: capacity is the description of the persistent volume's
+                  resources and capacity.
                 type: object
               path:
-                description: Path is the path of the nfs volume
+                description: path that is exported by the NFS server.
                 type: string
               server:
-                description: Server is where you store you nfs
+                description: server is the hostname or IP address of the NFS server.
                 type: string
             required:
             - path
             - server
             type: object
           status:
-            description: NfsPvcStatus defines the observed state of NfsPvc
+            description: NfsPvcStatus defines the observed state of NfsPvc.
             properties:
               pvPhase:
+                description: pvPhase indicates if a volume is available, bound to
+                  a claim, or released by a claim.
                 type: string
               pvcPhase:
-                description: PvcStatus is the current status of the NfsPvc object
+                description: pvcPhase represents the current phase of PersistentVolumeClaim.
                 type: string
             type: object
         type: object

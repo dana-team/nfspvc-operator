@@ -20,10 +20,13 @@ import (
 const (
 	NfsPvcDanaLabel         = "nfspvc.dana.io/nfspvc-owner"
 	PvcBindStatusAnnotation = "pv.kubernetes.io/bind-completed"
+
+	STORAGE_CLASS_ENV  = "STORAGE_CLASS"
+	RECLAIM_POLICY_ENV = "RECLAIM_POLICY"
 )
 
-var StorageClass = os.Getenv("STORAGE_CLASS")
-var ReclaimPolicy = os.Getenv("RECLAIM_POLICY")
+var StorageClass = os.Getenv(STORAGE_CLASS_ENV)
+var ReclaimPolicy = os.Getenv(RECLAIM_POLICY_ENV)
 
 func SyncNfsPvc(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
 	if nfspvc.ObjectMeta.DeletionTimestamp == nil {
@@ -75,11 +78,11 @@ func handlePvState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.L
 			Kind:      corev1.ResourcePersistentVolumeClaims.String(),
 		}
 		pv.Spec.ClaimRef = claimRefForPv
-		// Use retry on conflict to update the PV
+		// Use retry on conflict to update the PV.
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			updateErr := k8sClient.Update(ctx, &pv)
 			if errors.IsConflict(updateErr) {
-				// Conflict occurred, let's re-fetch the latest version of PV and retry the update
+				// Conflict occurred, let's re-fetch the latest version of PV and retry the update.
 				if getErr := k8sClient.Get(ctx, types.NamespacedName{Name: nfspvc.Name + "-" + nfspvc.Namespace + "-pv"}, &pv); getErr != nil {
 					return getErr
 				}
@@ -105,15 +108,15 @@ func handlePvcState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.
 		}
 	}
 
-	if pvc.Status.Phase == corev1.ClaimLost { //if the pvc's phase is 'lost', so probably the associated pv was deleted. In order to fix that the "bind" annotation needs to be deleted.
+	if pvc.Status.Phase == corev1.ClaimLost { // if the pvc's phase is 'lost', so probably the associated pv was deleted. In order to fix that the "bind" annotation needs to be deleted.
 		bindStatus, ok := pvc.ObjectMeta.Annotations[PvcBindStatusAnnotation]
 		if ok && bindStatus == "yes" {
 			delete(pvc.ObjectMeta.Annotations, PvcBindStatusAnnotation)
-			// Use retry on conflict to update the PVC
+			// Use retry on conflict to update the PVC.
 			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				updateErr := k8sClient.Update(ctx, &pvc)
 				if errors.IsConflict(updateErr) {
-					// Conflict occurred, let's re-fetch the latest version of PVC and retry the update
+					// Conflict occurred, let's re-fetch the latest version of PVC and retry the update.
 					if getErr := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); getErr != nil {
 						return getErr
 					}

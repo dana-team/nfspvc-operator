@@ -90,12 +90,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	if !utils.IsEnvironmentVariablesExist() {
-		setupLog.Error(err, "failed to get configuration environment variable")
-		os.Exit(1)
-	}
-	if !utils.IsReclaimPolicyValid(os.Getenv("RECLAIM_POLICY")) {
-		setupLog.Error(err, "invalid default Persistent Volume Reclaim Policy")
+	if ok, msg := utils.VerifyEnvironmentVariables(); !ok {
+		setupLog.Error(err, msg)
 		os.Exit(1)
 	}
 

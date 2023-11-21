@@ -64,6 +64,12 @@ vet: ## Run go vet against code.
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
+.PHONY: test-e2e
+test-e2e: ## Run end to end tests
+	@test -n "${KUBECONFIG}" -o -r ${HOME}/.kube/config || (echo "Failed to find kubeconfig in ~/.kube/config or no KUBECONFIG set"; exit 1)
+	echo "Running e2e tests"
+	go test ./test/e2e_tests -coverprofile cover.out -timeout 60m -test.v -ginkgo.vv $(TEST_OPTS)
+
 ##@ Build
 
 .PHONY: build

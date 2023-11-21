@@ -18,7 +18,7 @@ const (
 	StoragePhaseNotFound = "NotFound"
 )
 
-// SyncNfsPvcStatus fetches the phase of the pv and the pvc that is created by the nfspvc and updates the nfspvc status
+// SyncNfsPvcStatus fetches the phase of the pv and the pvc that is created by the nfspvc and updates the nfspvc status.
 func SyncNfsPvcStatus(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
 	nfspvcObject := danaiov1alpha1.NfsPvc{}
 	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &nfspvcObject); err != nil {
@@ -36,11 +36,11 @@ func SyncNfsPvcStatus(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log log
 		nfspvcObject.Status.PvcPhase = pvcPhase
 		nfspvcObject.Status.PvPhase = pvPhase
 
-		// Use retry on conflict to update the nfspvc status
+		// Use retry on conflict to update the nfspvc status.
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			updateErr := k8sClient.Status().Update(ctx, &nfspvcObject)
 			if errors.IsConflict(updateErr) {
-				// Conflict occurred, let's re-fetch the latest version of PV and retry the update
+				// Conflict occurred, let's re-fetch the latest version of NFSPVC and retry the update.
 				if getErr := k8sClient.Get(ctx, types.NamespacedName{Name: nfspvcObject.Name, Namespace: nfspvcObject.Namespace}, &nfspvcObject); getErr != nil {
 					return getErr
 				}
@@ -53,7 +53,7 @@ func SyncNfsPvcStatus(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log log
 	return nil
 }
 
-// getPvcStatus return the Pvc's Phase
+// getPvcStatus return the Pvc's Phase.
 func getPvcStatus(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient client.Client) string {
 	pvc := corev1.PersistentVolumeClaim{}
 	pvcPhase := ""
@@ -70,7 +70,7 @@ func getPvcStatus(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient c
 	return pvcPhase
 }
 
-// getPvStatus return the Pv's Phase
+// getPvStatus return the Pv's Phase.
 func getPvStatus(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient client.Client) string {
 	pv := corev1.PersistentVolume{}
 	pvPhase := ""
