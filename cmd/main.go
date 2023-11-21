@@ -33,6 +33,7 @@ import (
 
 	nfspvcv1alpha1 "dana.io/nfs-operator/api/v1alpha1"
 	"dana.io/nfs-operator/internal/controller"
+	utils "dana.io/nfs-operator/internal/controller/utils"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -86,6 +87,11 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	if ok, msg := utils.VerifyEnvironmentVariables(); !ok {
+		setupLog.Error(err, msg)
 		os.Exit(1)
 	}
 

@@ -21,32 +21,26 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// NfsPvcSpec defines the desired state of NfsPvc
+// NfsPvcSpec defines the desired state of NfsPvc.
 type NfsPvcSpec struct {
 
-	// AccessModes is the type of the access on the pvc RWX, RWo, ROX
+	// accessModes contains the desired access modes the volume should have(RWX, RWO, ROX).
 	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty" protobuf:"bytes,3,rep,name=accessModes,casttype=PersistentVolumeAccessMode"`
-	// Capacity is for the size of the nfs
+	// capacity is the description of the persistent volume's resources and capacity.
 	Capacity corev1.ResourceList `json:"capacity,omitempty" protobuf:"bytes,1,rep,name=capacity,casttype=ResourceList,castkey=ResourceName"`
-	// Path is the path of the nfs volume
-	Path string `json:"path"`
-	// Server is where you store you nfs
-	Server string `json:"server"`
+	// path that is exported by the NFS server.
+	Path string `json:"path" protobuf:"bytes,2,opt,name=path"`
+	// server is the hostname or IP address of the NFS server.
+	Server string `json:"server" protobuf:"bytes,1,opt,name=server"`
 }
 
-// NfsPvcStatus defines the observed state of NfsPvc
+// NfsPvcStatus defines the observed state of NfsPvc.
 type NfsPvcStatus struct {
-	// PvcStatus is the current status of the NfsPvc object
-	PvcStatus PvcCreationStatus `json:"pvcStatus"`
+	// pvcPhase represents the current phase of PersistentVolumeClaim.
+	PvcPhase string `json:"pvcPhase,omitempty" protobuf:"bytes,3,opt,name=pvcPhase"`
+	// pvPhase indicates if a volume is available, bound to a claim, or released by a claim.
+	PvPhase string `json:"pvPhase,omitempty" protobuf:"bytes,3,opt,name=pvPhase"`
 }
-
-type PvcCreationStatus string
-
-const (
-	PvcStatusPending PvcCreationStatus = "Pending"
-	PvcStatusCreated PvcCreationStatus = "Created"
-	PvcStatusError   PvcCreationStatus = "Error"
-)
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status

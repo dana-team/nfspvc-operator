@@ -2,11 +2,16 @@ apiVersion: nfspvc.dana.io/v1alpha1
 kind: NfsPvc
 metadata:
   labels:
-    app.kubernetes.io/name: nfspvc
-    app.kubernetes.io/instance: nfspvc-sample
+    app.kubernetes.io/name: test1
+    app.kubernetes.io/instance: test1
     app.kubernetes.io/part-of: nfs-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: nfs-operator
-  name: nfspvc-sample
+  name: test1
 spec:
-  # TODO(user): Add fields here
+  accessModes:
+    - ReadWriteOnce
+  capacity:
+      storage: 200G
+  path: /noki
+  server: vs-nas-noki
