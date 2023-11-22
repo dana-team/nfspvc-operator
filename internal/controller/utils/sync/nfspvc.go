@@ -77,9 +77,9 @@ func handlePvState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.L
 			Namespace: nfspvc.Namespace,
 			Kind:      corev1.ResourcePersistentVolumeClaims.String(),
 		}
-		pv.Spec.ClaimRef = claimRefForPv
 		// Use retry on conflict to update the PV.
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			pv.Spec.ClaimRef = claimRefForPv
 			updateErr := k8sClient.Update(ctx, &pv)
 			if errors.IsConflict(updateErr) {
 				// Conflict occurred, let's re-fetch the latest version of PV and retry the update.
@@ -111,9 +111,9 @@ func handlePvcState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.
 	if pvc.Status.Phase == corev1.ClaimLost { // if the pvc's phase is 'lost', so probably the associated pv was deleted. In order to fix that the "bind" annotation needs to be deleted.
 		bindStatus, ok := pvc.ObjectMeta.Annotations[PvcBindStatusAnnotation]
 		if ok && bindStatus == "yes" {
-			delete(pvc.ObjectMeta.Annotations, PvcBindStatusAnnotation)
 			// Use retry on conflict to update the PVC.
 			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				delete(pvc.ObjectMeta.Annotations, PvcBindStatusAnnotation)
 				updateErr := k8sClient.Update(ctx, &pvc)
 				if errors.IsConflict(updateErr) {
 					// Conflict occurred, let's re-fetch the latest version of PVC and retry the update.

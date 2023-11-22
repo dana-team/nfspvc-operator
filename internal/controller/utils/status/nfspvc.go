@@ -33,11 +33,11 @@ func SyncNfsPvcStatus(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log log
 	pvPhase := getPvStatus(ctx, nfspvc, k8sClient)
 
 	if pvcPhase != nfspvc.Status.PvcPhase || pvPhase != nfspvc.Status.PvPhase {
-		nfspvcObject.Status.PvcPhase = pvcPhase
-		nfspvcObject.Status.PvPhase = pvPhase
-
 		// Use retry on conflict to update the nfspvc status.
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			nfspvcObject.Status.PvcPhase = pvcPhase
+			nfspvcObject.Status.PvPhase = pvPhase
+
 			updateErr := k8sClient.Status().Update(ctx, &nfspvcObject)
 			if errors.IsConflict(updateErr) {
 				// Conflict occurred, let's re-fetch the latest version of NFSPVC and retry the update.
