@@ -5,8 +5,8 @@
 domain: dana.io
 layout:
 - go.kubebuilder.io/v4
-projectName: nfs-operator
-repo: dana.io/nfs-operator
+projectName: nfspvc-operator
+repo: dana.io/nfspvc-operator
 resources:
 - api:
     crdVersion: v1
@@ -15,6 +15,6 @@ resources:
   domain: dana.io
   group: nfspvc
   kind: NfsPvc
-  path: dana.io/nfs-operator/api/v1alpha1
+  path: dana.io/nfspvc-operator/api/v1alpha1
   version: v1alpha1
 version: "3"
