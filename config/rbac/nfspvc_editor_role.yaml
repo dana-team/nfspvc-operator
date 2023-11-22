@@ -6,8 +6,8 @@ metadata:
     app.kubernetes.io/name: clusterrole
     app.kubernetes.io/instance: nfspvc-editor-role
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: nfs-operator
-    app.kubernetes.io/part-of: nfs-operator
+    app.kubernetes.io/created-by: nfspvc-operator
+    app.kubernetes.io/part-of: nfspvc-operator
     app.kubernetes.io/managed-by: kustomize
   name: nfspvc-editor-role
 rules:

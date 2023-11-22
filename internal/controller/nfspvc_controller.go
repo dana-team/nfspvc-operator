@@ -62,9 +62,9 @@ func (r *NfsPvcReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:rbac:groups="",resources=persistentvolumes,verbs=get;list;watch;create;update;delete
 //+kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;delete
-//+kubebuilder:rbac:groups=dana.io.dana.io,resources=nfspvcs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=dana.io.dana.io,resources=nfspvcs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=dana.io.dana.io,resources=nfspvcs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=nfspvc.dana.io,resources=nfspvcs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=nfspvc.dana.io,resources=nfspvcs/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=nfspvc.dana.io,resources=nfspvcs/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
