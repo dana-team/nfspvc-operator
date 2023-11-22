@@ -25,9 +25,9 @@ import (
 type NfsPvcSpec struct {
 
 	// accessModes contains the desired access modes the volume should have(RWX, RWO, ROX).
-	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty" protobuf:"bytes,3,rep,name=accessModes,casttype=PersistentVolumeAccessMode"`
+	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes" protobuf:"bytes,3,rep,name=accessModes,casttype=PersistentVolumeAccessMode"`
 	// capacity is the description of the persistent volume's resources and capacity.
-	Capacity corev1.ResourceList `json:"capacity,omitempty" protobuf:"bytes,1,rep,name=capacity,casttype=ResourceList,castkey=ResourceName"`
+	Capacity corev1.ResourceList `json:"capacity" protobuf:"bytes,1,rep,name=capacity,casttype=ResourceList,castkey=ResourceName"`
 	// path that is exported by the NFS server.
 	Path string `json:"path" protobuf:"bytes,2,opt,name=path"`
 	// server is the hostname or IP address of the NFS server.

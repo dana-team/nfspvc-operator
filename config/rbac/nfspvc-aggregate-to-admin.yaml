@@ -1,27 +1,16 @@
-# permissions for end users to view nfspvcs.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: nfspvc-aggregate-to-admin
   labels:
     app.kubernetes.io/name: clusterrole
-    app.kubernetes.io/instance: nfspvc-viewer-role
+    app.kubernetes.io/instance: nfspvc-aggregate-to-admin
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: nfspvc-operator
     app.kubernetes.io/part-of: nfspvc-operator
     app.kubernetes.io/managed-by: kustomize
-  name: nfspvc-viewer-role
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
 rules:
-- apiGroups:
-  - nfspvc.dana.io
-  resources:
-  - nfspvcs
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - nfspvc.dana.io
-  resources:
-  - nfspvcs/status
-  verbs:
-  - get
+- apiGroups: ["nfspvc.dana.io"]
+  resources: ["nfspvcs"]
+  verbs: ["get", "list", "watch", "create", "delete"]	

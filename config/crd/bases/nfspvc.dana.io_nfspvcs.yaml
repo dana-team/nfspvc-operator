@@ -57,6 +57,8 @@ spec:
                 description: server is the hostname or IP address of the NFS server.
                 type: string
             required:
+            - accessModes
+            - capacity
             - path
             - server
             type: object
