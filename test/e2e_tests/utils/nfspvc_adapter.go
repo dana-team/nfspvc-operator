@@ -7,7 +7,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	nfspvcv1alpha1 "dana.io/nfs-operator/api/v1alpha1"
+	nfspvcv1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	danaiov1alpha1 "dana.io/nfs-operator/api/v1alpha1"
+	danaiov1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	danaiov1alpha1 "dana.io/nfs-operator/api/v1alpha1"
+	danaiov1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"

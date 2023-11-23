@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	nfspvcv1alpha1 "dana.io/nfs-operator/api/v1alpha1"
-	mock "dana.io/nfs-operator/test/e2e_tests/mocks"
+	nfspvcv1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
+	mock "github.com/dana-team/nfspvc-operator/test/e2e_tests/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
