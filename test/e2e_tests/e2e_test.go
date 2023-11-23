@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	nfspvcv1alpha1 "dana.io/nfs-operator/api/v1alpha1"
+	nfspvcv1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
 
-	mock "dana.io/nfs-operator/test/e2e_tests/mocks"
-	utilst "dana.io/nfs-operator/test/e2e_tests/utils"
+	mock "github.com/dana-team/nfspvc-operator/test/e2e_tests/mocks"
+	utilst "github.com/dana-team/nfspvc-operator/test/e2e_tests/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"

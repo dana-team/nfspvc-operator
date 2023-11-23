@@ -35,9 +35,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	danaiov1alpha1 "dana.io/nfs-operator/api/v1alpha1"
-	finalizer_utils "dana.io/nfs-operator/internal/controller/utils/finalizer"
-	sync_utils "dana.io/nfs-operator/internal/controller/utils/sync"
+	danaiov1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
+	finalizer_utils "github.com/dana-team/nfspvc-operator/internal/controller/utils/finalizer"
+	sync_utils "github.com/dana-team/nfspvc-operator/internal/controller/utils/sync"
 )
 
 const REQUEUE_INTERVAL_SECONDS = 4
