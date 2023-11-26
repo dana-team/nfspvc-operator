@@ -43,11 +43,11 @@ func SyncNfsPvc(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logg
 }
 
 func createOrUpdateStorageObjects(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
-	if err := handlePvState(ctx, nfspvc, log, k8sClient); err != nil {
+	if err := handlePVState(ctx, nfspvc, log, k8sClient); err != nil {
 		return err
 	}
 
-	if err := handlePvcState(ctx, nfspvc, log, k8sClient); err != nil {
+	if err := handlePVCState(ctx, nfspvc, log, k8sClient); err != nil {
 		return err
 	}
 
@@ -55,23 +55,25 @@ func createOrUpdateStorageObjects(ctx context.Context, nfspvc danaiov1alpha1.Nfs
 
 }
 
-func handlePvState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
+func handlePVState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
 	pv := corev1.PersistentVolume{}
 	if err := k8sClient.Get(ctx, types.NamespacedName{Name: nfspvc.Name + "-" + nfspvc.Namespace + "-pv"}, &pv); err != nil {
 		if !errors.IsNotFound(err) {
 			log.Error(err, "unable to get pv - "+nfspvc.Name+"-"+nfspvc.Namespace+"-pv")
 			return err
 		}
-		pvFromNfsPvc := preparePv(nfspvc)
+		pvFromNfsPvc := preparePV(nfspvc)
 		if err := k8sClient.Create(ctx, &pvFromNfsPvc); err != nil {
 			return fmt.Errorf("failed to create pv: %s", err.Error())
 		}
 		return nil
 	}
 
-	if pv.Status.Phase == corev1.VolumeReleased || pv.Status.Phase == corev1.VolumeFailed ||
-		(nfspvc.Status.PvPhase == string(corev1.VolumeBound) && nfspvc.Status.PvcPhase == string(corev1.ClaimPending)) {
-
+	isClaimRefPVCDeleted, err := isConnectedPVCDeleted(ctx, k8sClient, pv, nfspvc)
+	if err != nil {
+		return fmt.Errorf("failed to fetch claimRef PVC: %s", err.Error())
+	}
+	if isClaimRefPVCDeleted {
 		claimRefForPv := &corev1.ObjectReference{
 			Name:      nfspvc.Name,
 			Namespace: nfspvc.Namespace,
@@ -94,11 +96,11 @@ func handlePvState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.L
 	return nil
 }
 
-func handlePvcState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
+func handlePVCState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
 	pvc := corev1.PersistentVolumeClaim{}
 	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); err != nil {
 		if errors.IsNotFound(err) {
-			pvcFromNfsPvc := preparePvc(nfspvc)
+			pvcFromNfsPvc := preparePVC(nfspvc)
 			if err := k8sClient.Create(ctx, &pvcFromNfsPvc); err != nil {
 				return fmt.Errorf("failed to create pvc: %s", err.Error())
 			}
@@ -130,7 +132,7 @@ func handlePvcState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.
 	return nil
 }
 
-func preparePvc(nfspvc danaiov1alpha1.NfsPvc) corev1.PersistentVolumeClaim {
+func preparePVC(nfspvc danaiov1alpha1.NfsPvc) corev1.PersistentVolumeClaim {
 	storageClass := StorageClass
 	pvc := corev1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{},
@@ -153,7 +155,7 @@ func preparePvc(nfspvc danaiov1alpha1.NfsPvc) corev1.PersistentVolumeClaim {
 	return pvc
 }
 
-func preparePv(nfspvc danaiov1alpha1.NfsPvc) corev1.PersistentVolume {
+func preparePV(nfspvc danaiov1alpha1.NfsPvc) corev1.PersistentVolume {
 	pv := corev1.PersistentVolume{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
@@ -181,4 +183,58 @@ func preparePv(nfspvc danaiov1alpha1.NfsPvc) corev1.PersistentVolume {
 		},
 	}
 	return pv
+}
+
+// isConnectedPVCDeleted returns if the connected PVC is deleted,
+// connected PVC considered deleted when the PV phase is Released or Failed,
+// or the PV phase in the nfspvc is bound, the PVC phase in the nfspvc is pending and the UID in the PV claimRef is different from the PVC UID.
+func isConnectedPVCDeleted(ctx context.Context, k8sClient client.Client, PV corev1.PersistentVolume, nfspvc danaiov1alpha1.NfsPvc) (bool, error) {
+	if isPVReleased(PV) {
+		return true, nil
+	}
+	if isPVFailed(PV) {
+		return true, nil
+	}
+	if isPVCInRecreation, err := isPVCInRecreationState(ctx, k8sClient, nfspvc, PV); err != nil {
+		return false, err
+	} else {
+		return isPVCInRecreation, nil
+	}
+}
+
+// isPVReleased returns true if the PV phase is Released.
+func isPVReleased(PV corev1.PersistentVolume) bool {
+	return (PV.Status.Phase == corev1.VolumeReleased)
+}
+
+// isPVFailed returns true if the PV phase is Failed.
+func isPVFailed(PV corev1.PersistentVolume) bool {
+	return (PV.Status.Phase == corev1.VolumeFailed)
+}
+
+// isPVCInRecreationState returns true if the PVC in recreation state, i.e. when
+// the PV phase of the nfspvc is bound, and
+// the PVC phase in the nfspvc is pending, and
+// the UID in the PV claimRef is different from the PVC UID.
+func isPVCInRecreationState(ctx context.Context, k8sClient client.Client, nfspvc danaiov1alpha1.NfsPvc, PV corev1.PersistentVolume) (bool, error) {
+	isUIDEqual, err := isPVCUIDEqual(ctx, k8sClient, PV.Spec.ClaimRef.UID, nfspvc)
+	if err != nil {
+		return false, err
+	}
+	return nfspvc.Status.PvPhase == string(corev1.VolumeBound) &&
+		nfspvc.Status.PvcPhase == string(corev1.ClaimPending) &&
+		!isUIDEqual, nil
+}
+
+// isPVCUIDEqual returns true if the PVC uid and the claimRef uid of the PV are equal.
+func isPVCUIDEqual(ctx context.Context, k8sClient client.Client, uid types.UID, nfspvc danaiov1alpha1.NfsPvc) (bool, error) {
+	pvc := corev1.PersistentVolumeClaim{}
+	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); err != nil {
+		if errors.IsNotFound(err) {
+			return false, nil
+		} else {
+			return false, err
+		}
+	}
+	return pvc.GetUID() == uid, nil
 }
