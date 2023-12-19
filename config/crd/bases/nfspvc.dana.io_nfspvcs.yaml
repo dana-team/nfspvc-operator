@@ -52,9 +52,11 @@ spec:
                 type: object
               path:
                 description: path that is exported by the NFS server.
+                pattern: ^/
                 type: string
               server:
                 description: server is the hostname or IP address of the NFS server.
+                minLength: 1
                 type: string
             required:
             - accessModes

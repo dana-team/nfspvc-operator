@@ -155,3 +155,35 @@ var _ = Describe("E2E tests", func() {
 		time.Sleep(time.Second * 5)
 	})
 })
+
+var _ = Describe("validate webhook acted correctly ", func() {
+
+	Context("with unsupported access mode", func() {
+		It("should be denied", func() {
+			baseNfsPvc := mock.CreateBaseNfsPvc()
+			baseNfsPvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{"not good"}
+			Expect(utilst.CreateResource(k8sClient, baseNfsPvc)).Should(BeFalse())
+		})
+	})
+	Context("when PVC with same name already exists", func() {
+		It("should be denied", func() {
+			baseNfsPvc := mock.CreateBaseNfsPvc()
+			pvc := mock.CreateBasePVC(baseNfsPvc.Name)
+			By("creating PVC")
+			Expect(utilst.CreateResource(k8sClient, pvc)).Should(BeTrue())
+			time.Sleep(time.Second * 3)
+			By("creating NFSPVC with same name")
+			Expect(utilst.CreateResource(k8sClient, baseNfsPvc)).Should(BeFalse())
+		})
+	})
+	Context("updating a NFSPVC", func() {
+		It("should be denied", func() {
+			By("creating nfspvc object")
+			baseNfsPvc := mock.CreateBaseNfsPvc()
+			desiredNfsPvc := utilst.CreateNfspvc(k8sClient, baseNfsPvc)
+			time.Sleep(time.Second * 3)
+			desiredNfsPvc.Spec.Server = "vs-change"
+			Expect(k8sClient.Update(context.Background(), desiredNfsPvc)).ToNot(Succeed(), "failed to update NFSPVC.")
+		})
+	})
+})

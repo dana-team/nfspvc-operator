@@ -16,6 +16,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var (
@@ -44,6 +46,7 @@ func newScheme() *runtime.Scheme {
 }
 
 var _ = SynchronizedBeforeSuite(func() {
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	// Get the cluster configuration.
 	// Get the k8sClient or die
 	config, err := config.GetConfig()
