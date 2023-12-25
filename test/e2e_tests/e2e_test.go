@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	TimeoutNfsPvc          = 30 * time.Second
+	TimeoutNfsPvc          = 60 * time.Second
 	NfsPvcCreationInterval = 5 * time.Second
 )
 
