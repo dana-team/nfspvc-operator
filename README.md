@@ -1,94 +1,74 @@
-# nfs-operator
-// TODO(user): Add simple overview of use/purpose
+# nfspvc-operator
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+The `nfspvc-operator` is an operator that reconciles `NfsPvc` CRs.
 
-## Getting Started
-You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
-**Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
+`NfsPvc` provides a simple interface (CRD) to create `PVC` and `PV` in a Kubernetes cluster with an NFS backend, allowing you to connect pre-existing NFS storage to your workloads without using any CSI driver.
 
-### Running on the cluster
-1. Install Instances of Custom Resources:
+This is useful when you have an already-created NFS, which you would like to mount in different places (Kubernetes Pod, Virtual Machine, etc...).
 
-```sh
-kubectl apply -f config/samples/
+## How to Use
+
+An example `NfsPvc` CR looks as follows:
+
+```yaml
+apiVersion: nfspvc.dana.io/v1alpha1
+kind: NfsPvc
+metadata:
+  name: test
+  namespace: test
+spec:
+  accessModes:
+    - ReadWriteOnce
+  capacity:
+    storage: 200Gi
+  path: /test
+  server: vs-nas-test
 ```
 
-2. Build and push your image to the location specified by `IMG`:
+The supported `accessModes` are the same as those of the `PVC` resource: `ReadWriteOnce`, `ReadOnlyMany`, `ReadWriteMany` and `ReadWriteOncePod`
 
-```sh
-make docker-build docker-push IMG=<some-registry>/nfs-operator:tag
+### Status
+
+The status of a `NfsPvc` resource shows the status of the `PVC` and `PV` it creates. For example:
+
+```yaml
+...
+status:
+  pvPhase: Bound
+  pvcPhase: Bound
 ```
 
-3. Deploy the controller to the cluster with the image specified by `IMG`:
+### Lifecycle
 
-```sh
-make deploy IMG=<some-registry>/nfs-operator:tag
+Once a `NfsPvc` CR is created, then corresponding `PVC` and `PV` objects are created. When the CR is removed, then the `PVC` and `PV` objects are removed. The `ReclaimPolicy` is [defined by the `configuration-nfspvc` `ConfigMap`](#how-to-deploy).
+
+If the underlying `PVC` or `PV` is deleted but the corresponding `NfsPvc` still exists, then the operator will re-create the `PVC` or `PV`.
+
+## How to Deploy
+
+### Config
+
+The controller makes use of a `ConfigMap` of the name `configuration-nfspvc` with default values for `StorageClass` and `ReclaimPolicy`:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configuration-nfspvc
+  namespace: system
+data:
+  STORAGE_CLASS: brown
+  RECLAIM_POLICY: Retain
 ```
 
-### Uninstall CRDs
-To delete the CRDs from the cluster:
+### Deploying the controller
 
-```sh
-make uninstall
+```bash
+$ make deploy IMG=ghcr.io/dana-team/nfspvc-operator:<release>
 ```
 
-### Undeploy controller
-UnDeploy the controller from the cluster:
+#### Build your own image
 
-```sh
-make undeploy
+```bash
+$ make docker-build docker-push IMG=<registry>/nfspvc-operator:<tag>
 ```
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-### How it works
-This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/).
-
-It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/),
-which provide a reconcile function responsible for synchronizing resources until the desired state is reached on the cluster.
-
-### Test It Out
-1. Install the CRDs into the cluster:
-
-```sh
-make install
-```
-
-2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
-
-```sh
-make run
-```
-
-**NOTE:** You can also run this in one step by running: `make install run`
-
-### Modifying the API definitions
-If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
-
-```sh
-make manifests
-```
-
-**NOTE:** Run `make --help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
-
-## License
-
-Copyright 2023.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
