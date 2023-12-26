@@ -54,7 +54,8 @@ jobs:
           node_image: kindest/node:${{env.K8S_VERSION}}
           kubectl_version: ${{env.K8S_VERSION}}
           registry: true
-
+      - name: Deploy cert-manager
+        run: kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml
       - name: Build nfspvc image
         run: make docker-build docker-push IMG=${IMAGE_REGISTRY}/nfspvc-operator:test-${GITHUB_REF##*/}
       - name: Deploy to cluster
