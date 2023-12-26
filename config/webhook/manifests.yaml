@@ -1,0 +1,26 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-nfspvc-dana-io-v1alpha1-nfspvc
+  failurePolicy: Fail
+  name: vnfspvc.kb.io
+  rules:
+  - apiGroups:
+    - nfspvc.dana.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - nfspvcs
+  sideEffects: None

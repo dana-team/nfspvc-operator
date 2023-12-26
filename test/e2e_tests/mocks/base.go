@@ -1,6 +1,8 @@
 package mocks
 
 import (
+	"os"
+
 	nfspvcv1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -28,6 +30,25 @@ func CreateBaseNfsPvc() *nfspvcv1alpha1.NfsPvc {
 			},
 			Path:   "/test",
 			Server: "vs-koki",
+		},
+	}
+}
+
+func CreateBasePVC(pvcName string) *corev1.PersistentVolumeClaim {
+	storageClass := os.Getenv("STORAGE_CLASS")
+	return &corev1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pvcName,
+			Namespace: NsName,
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			StorageClassName: &storageClass,
+			VolumeName:       pvcName + "-" + NsName + "-pv",
+			AccessModes:      []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("5Gi")},
+			},
 		},
 	}
 }

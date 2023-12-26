@@ -29,8 +29,10 @@ type NfsPvcSpec struct {
 	// capacity is the description of the persistent volume's resources and capacity.
 	Capacity corev1.ResourceList `json:"capacity" protobuf:"bytes,1,rep,name=capacity,casttype=ResourceList,castkey=ResourceName"`
 	// path that is exported by the NFS server.
+	// +kubebuilder:validation:Pattern="^/"
 	Path string `json:"path" protobuf:"bytes,2,opt,name=path"`
 	// server is the hostname or IP address of the NFS server.
+	// +kubebuilder:validation:MinLength=1
 	Server string `json:"server" protobuf:"bytes,1,opt,name=server"`
 }
 

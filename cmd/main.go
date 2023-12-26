@@ -24,9 +24,6 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	nfspvcv1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
-	"github.com/dana-team/nfspvc-operator/internal/controller"
-	utils "github.com/dana-team/nfspvc-operator/internal/controller/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -35,6 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	nfspvcv1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
+	"github.com/dana-team/nfspvc-operator/internal/controller"
+	utils "github.com/dana-team/nfspvc-operator/internal/controller/utils"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -93,6 +94,10 @@ func main() {
 		Log:    ctrl.Log.WithName("controllers").WithName("NfsPvcController"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "NfsPvc")
+		os.Exit(1)
+	}
+	if err = (&nfspvcv1alpha1.NfsPvc{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "NfsPvc")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

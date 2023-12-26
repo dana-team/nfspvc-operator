@@ -9,6 +9,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+func CreateResource(k8sClient client.Client, obj client.Object) bool {
+	copyObject := obj.DeepCopyObject().(client.Object)
+	err := k8sClient.Create(context.Background(), copyObject)
+	return err == nil
+}
+
 // DoesResourceExist checks if a given Kubernetes object exists in the cluster.
 func DoesResourceExist(k8sClient client.Client, obj client.Object) bool {
 	copyObject := obj.DeepCopyObject().(client.Object)
@@ -20,7 +26,6 @@ func DoesResourceExist(k8sClient client.Client, obj client.Object) bool {
 		Fail(fmt.Sprintf("The function failed with error: \n %s", err.Error()))
 	}
 	return true
-
 }
 
 // GetResourceUid returns a given Kubernetes object UID.
