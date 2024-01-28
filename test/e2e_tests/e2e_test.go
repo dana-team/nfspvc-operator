@@ -34,7 +34,7 @@ var _ = Describe("validate NFSPVC adapter", func() {
 
 	It("should succeed all adapter functions", func() {
 		baseNfsPvc := mock.CreateBaseNfsPvc()
-		desiredNfsPvc := utilst.CreateNfspvc(k8sClient, baseNfsPvc)
+		desiredNfsPvc := utilst.CreateNfsPvc(k8sClient, baseNfsPvc)
 		assertionNfsPvc := &nfspvcv1alpha1.NfsPvc{}
 		By("checks unique creation of NFSPVC")
 		Eventually(func() string {
@@ -55,7 +55,7 @@ var _ = Describe("E2E tests", func() {
 		It("should bound pv and pvc objects and deletion will cleanup", func() {
 			By("creating NFSPVC object")
 			baseNfsPvc := mock.CreateBaseNfsPvc()
-			desiredNfsPvc := utilst.CreateNfspvc(k8sClient, baseNfsPvc)
+			desiredNfsPvc := utilst.CreateNfsPvc(k8sClient, baseNfsPvc)
 			By("check if the pvc exists")
 			Eventually(func() bool {
 				pvc := corev1.PersistentVolumeClaim{
@@ -109,7 +109,7 @@ var _ = Describe("E2E tests", func() {
 		It("should sync the pv and pvc to the desired state", func() {
 			By("creating nfspvc object")
 			baseNfsPvc := mock.CreateBaseNfsPvc()
-			desiredNfsPvc := utilst.CreateNfspvc(k8sClient, baseNfsPvc)
+			desiredNfsPvc := utilst.CreateNfsPvc(k8sClient, baseNfsPvc)
 			time.Sleep(time.Second * 3)
 			By("deleting the associated pvc")
 			pvc := corev1.PersistentVolumeClaim{
@@ -180,7 +180,7 @@ var _ = Describe("validate webhook acted correctly ", func() {
 		It("should be denied", func() {
 			By("creating nfspvc object")
 			baseNfsPvc := mock.CreateBaseNfsPvc()
-			desiredNfsPvc := utilst.CreateNfspvc(k8sClient, baseNfsPvc)
+			desiredNfsPvc := utilst.CreateNfsPvc(k8sClient, baseNfsPvc)
 			time.Sleep(time.Second * 3)
 			desiredNfsPvc.Spec.Server = "vs-change"
 			Expect(k8sClient.Update(context.Background(), desiredNfsPvc)).ToNot(Succeed(), "failed to update NFSPVC.")

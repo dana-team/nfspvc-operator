@@ -1,0 +1,21 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "chart.fullname" . }}-nfspvc-aggregate-to-admin
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: nfspvc-operator
+    app.kubernetes.io/part-of: nfspvc-operator
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  {{- include "chart.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - nfspvc.dana.io
+  resources:
+  - nfspvcs
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete

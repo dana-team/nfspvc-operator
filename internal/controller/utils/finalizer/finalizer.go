@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const FinalizerDeletionNfsPVc = "nfspvc.dana.io/nfspvc-protection"
+const NfsPvcDeletionFinalizer = "nfspvc.dana.io/nfspvc-protection"
 
 type FailedCleanUpError struct {
 	Message string
@@ -36,7 +36,7 @@ func IsFailedCleanUp(err error) bool {
 // HandleResourceDeletion ensures the deletion of the nfspvc.
 func HandleResourceDeletion(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) (error, bool) {
 	if nfspvc.ObjectMeta.DeletionTimestamp != nil {
-		if controllerutil.ContainsFinalizer(&nfspvc, FinalizerDeletionNfsPVc) {
+		if controllerutil.ContainsFinalizer(&nfspvc, NfsPvcDeletionFinalizer) {
 			// check if the pv and the pvc are deleted.
 			pvcDeleted := false
 			pvc := corev1.PersistentVolumeClaim{}
@@ -58,7 +58,7 @@ func HandleResourceDeletion(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, l
 			}
 
 			if pvDeleted && pvcDeleted { // if the pv and the pvc were successfully deleted, remove the finalizer.
-				return RemoveFinalizer(ctx, nfspvc, log, k8sClient), true
+				return removeFinalizer(ctx, nfspvc, log, k8sClient), true
 			} else if !pvDeleted && pvcDeleted { // if only the pvc was deleted successfully, the reconcile function will be triggered again for the pv cleanup.
 				// if the pv still exists, delete it.
 				if err := nfsPvcCleanUp(ctx, nfspvc, log, k8sClient); err != nil {
@@ -111,8 +111,8 @@ func deleteResource(ctx context.Context, namespacedName types.NamespacedName, re
 }
 
 // removeFinalizer remove the dana finalizer from the nfspvc object.
-func RemoveFinalizer(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
-	controllerutil.RemoveFinalizer(&nfspvc, FinalizerDeletionNfsPVc)
+func removeFinalizer(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
+	controllerutil.RemoveFinalizer(&nfspvc, NfsPvcDeletionFinalizer)
 	if err := k8sClient.Update(ctx, &nfspvc); err != nil {
 		log.Error(err, "unable to remove the finalizer from the NfsPvc - "+nfspvc.Name)
 		return err
@@ -120,10 +120,10 @@ func RemoveFinalizer(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr
 	return nil
 }
 
-// ensureFinalizer ensures the nfspvc has the finalizer.
+// EnsureFinalizer ensures the nfspvc has the finalizer.
 func EnsureFinalizer(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient client.Client, log logr.Logger) error {
-	if !controllerutil.ContainsFinalizer(&nfspvc, FinalizerDeletionNfsPVc) {
-		controllerutil.AddFinalizer(&nfspvc, FinalizerDeletionNfsPVc)
+	if !controllerutil.ContainsFinalizer(&nfspvc, NfsPvcDeletionFinalizer) {
+		controllerutil.AddFinalizer(&nfspvc, NfsPvcDeletionFinalizer)
 		if err := k8sClient.Update(ctx, &nfspvc); err != nil {
 			log.Error(err, "unable to add the finalizer to the nfspvc - "+nfspvc.Name)
 			return err

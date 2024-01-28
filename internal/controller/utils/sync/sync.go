@@ -7,7 +7,6 @@ import (
 	"os"
 
 	danaiov1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
-	status_utils "github.com/dana-team/nfspvc-operator/internal/controller/utils/status"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -21,33 +20,19 @@ const (
 	NfsPvcDanaLabel         = "nfspvc.dana.io/nfspvc-owner"
 	PvcBindStatusAnnotation = "pv.kubernetes.io/bind-completed"
 
-	STORAGE_CLASS_ENV  = "STORAGE_CLASS"
-	RECLAIM_POLICY_ENV = "RECLAIM_POLICY"
+	StorageClassEnv  = "STORAGE_CLASS"
+	ReclaimPolicyEnv = "RECLAIM_POLICY"
 )
 
-var StorageClass = os.Getenv(STORAGE_CLASS_ENV)
-var ReclaimPolicy = os.Getenv(RECLAIM_POLICY_ENV)
+var StorageClass = os.Getenv(StorageClassEnv)
+var ReclaimPolicy = os.Getenv(ReclaimPolicyEnv)
 
-func SyncNfsPvc(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
-	if nfspvc.ObjectMeta.DeletionTimestamp == nil {
-		if err := createOrUpdateStorageObjects(ctx, nfspvc, log, k8sClient); err != nil {
-			return err
-		}
-	}
-
-	if err := status_utils.SyncNfsPvcStatus(ctx, nfspvc, log, k8sClient); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func createOrUpdateStorageObjects(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
+func CreateOrUpdateStorageObjects(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
 	if err := handlePVState(ctx, nfspvc, log, k8sClient); err != nil {
 		return err
 	}
 
-	if err := handlePVCState(ctx, nfspvc, log, k8sClient); err != nil {
+	if err := handlePVCState(ctx, nfspvc, k8sClient); err != nil {
 		return err
 	}
 
@@ -96,7 +81,7 @@ func handlePVState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.L
 	return nil
 }
 
-func handlePVCState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
+func handlePVCState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient client.Client) error {
 	pvc := corev1.PersistentVolumeClaim{}
 	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); err != nil {
 		if errors.IsNotFound(err) {
@@ -147,7 +132,7 @@ func preparePVC(nfspvc danaiov1alpha1.NfsPvc) corev1.PersistentVolumeClaim {
 			StorageClassName: &storageClass,
 			VolumeName:       nfspvc.Name + "-" + nfspvc.Namespace + "-pv",
 			AccessModes:      nfspvc.Spec.AccessModes,
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: nfspvc.Spec.Capacity,
 			},
 		},
@@ -204,12 +189,12 @@ func isConnectedPVCDeleted(ctx context.Context, k8sClient client.Client, PV core
 
 // isPVReleased returns true if the PV phase is Released.
 func isPVReleased(PV corev1.PersistentVolume) bool {
-	return (PV.Status.Phase == corev1.VolumeReleased)
+	return PV.Status.Phase == corev1.VolumeReleased
 }
 
 // isPVFailed returns true if the PV phase is Failed.
 func isPVFailed(PV corev1.PersistentVolume) bool {
-	return (PV.Status.Phase == corev1.VolumeFailed)
+	return PV.Status.Phase == corev1.VolumeFailed
 }
 
 // isPVCInRecreationState returns true if the PVC in recreation state, i.e. when

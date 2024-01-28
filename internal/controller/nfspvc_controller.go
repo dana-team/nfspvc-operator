@@ -21,7 +21,12 @@ import (
 	"fmt"
 	"time"
 
+	danaiov1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
+	finalizerutils "github.com/dana-team/nfspvc-operator/internal/controller/utils/finalizer"
+	statusutils "github.com/dana-team/nfspvc-operator/internal/controller/utils/status"
+	syncutils "github.com/dana-team/nfspvc-operator/internal/controller/utils/sync"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,15 +37,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	corev1 "k8s.io/api/core/v1"
-
-	danaiov1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
-	finalizer_utils "github.com/dana-team/nfspvc-operator/internal/controller/utils/finalizer"
-	sync_utils "github.com/dana-team/nfspvc-operator/internal/controller/utils/sync"
 )
 
-const REQUEUE_INTERVAL_SECONDS = 4
+const RequeueIntervalSeconds = 4
 
 // NfsPvcReconciler reconciles a NfsPvc object
 type NfsPvcReconciler struct {
@@ -66,16 +65,6 @@ func (r *NfsPvcReconciler) SetupWithManager(mgr ctrl.Manager) error {
 //+kubebuilder:rbac:groups=nfspvc.dana.io,resources=nfspvcs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=nfspvc.dana.io,resources=nfspvcs/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the NfsPvc object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.15.0/pkg/reconcile
-
 func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("NfsPvc", req.Name, "NfsPvcNamespace", req.Namespace)
 	logger.Info("Starting Reconcile")
@@ -89,24 +78,24 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, fmt.Errorf("failed to get NfsPvc: %s", err.Error())
 	}
 
-	err, deleted := finalizer_utils.HandleResourceDeletion(ctx, nfspvc, logger, r.Client)
+	err, deleted := finalizerutils.HandleResourceDeletion(ctx, nfspvc, logger, r.Client)
 	if err != nil {
-		if finalizer_utils.IsFailedCleanUp(err) {
+		if finalizerutils.IsFailedCleanUp(err) {
 			// this means the error is of type *FailedCleanUpError.
 			logger.Info(fmt.Sprintf("failed to handle NfsPvc deletion: %s, so trying again in a few seconds", err.Error()))
-			return ctrl.Result{RequeueAfter: time.Second * REQUEUE_INTERVAL_SECONDS}, nil
+			return ctrl.Result{RequeueAfter: time.Second * RequeueIntervalSeconds}, nil
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to handle NfsPvc deletion: %s", err.Error())
 	}
 	if deleted {
 		return ctrl.Result{}, nil
 	}
-	if err := finalizer_utils.EnsureFinalizer(ctx, nfspvc, r.Client, logger); err != nil {
+	if err := finalizerutils.EnsureFinalizer(ctx, nfspvc, r.Client, logger); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to ensure finalizer in Capp: %s", err.Error())
 	}
 
 	// now sync the objects to the nfspvc object.
-	if err := sync_utils.SyncNfsPvc(ctx, nfspvc, logger, r.Client); err != nil {
+	if err := SyncNfsPvc(ctx, nfspvc, logger, r.Client); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to sync NfsPvc: %s", err.Error())
 	}
 
@@ -141,4 +130,18 @@ func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolumeClaim(ctx context.
 		return []reconcile.Request{}
 	}
 	return requests
+}
+
+func SyncNfsPvc(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
+	if nfspvc.ObjectMeta.DeletionTimestamp == nil {
+		if err := syncutils.CreateOrUpdateStorageObjects(ctx, nfspvc, log, k8sClient); err != nil {
+			return err
+		}
+	}
+
+	if err := statusutils.SyncNfsPvcStatus(ctx, nfspvc, log, k8sClient); err != nil {
+		return err
+	}
+
+	return nil
 }

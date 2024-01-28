@@ -2,7 +2,8 @@ package utils
 
 import (
 	"context"
-	"math/rand"
+	"crypto/rand"
+	"math/big"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -15,20 +16,25 @@ import (
 const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 const RandStrLength = 10
 
-var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
-
 // generateRandomString returns a random string of the specified length using characters from the charset.
-func generateRandomString(length int) string {
+func generateRandomString(length int) (string, error) {
 	b := make([]byte, length)
+
 	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
+		randomIndex, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			return "", err
+		}
+		b[i] = charset[randomIndex.Int64()]
 	}
-	return string(b)
+
+	return string(b), nil
 }
 
 // CreateNfsPvc creates a new NfsPvc instance with a unique name and returns it.
-func CreateNfspvc(k8sClient client.Client, nfsPvc *nfspvcv1alpha1.NfsPvc) *nfspvcv1alpha1.NfsPvc {
-	randString := generateRandomString(RandStrLength)
+func CreateNfsPvc(k8sClient client.Client, nfsPvc *nfspvcv1alpha1.NfsPvc) *nfspvcv1alpha1.NfsPvc {
+	randString, err := generateRandomString(RandStrLength)
+	Expect(err).To(BeNil())
 	nfsPvcName := nfsPvc.Name + "-" + randString
 	newNfsPvc := nfsPvc.DeepCopy()
 	newNfsPvc.Name = nfsPvcName
