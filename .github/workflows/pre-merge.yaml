@@ -1,5 +1,4 @@
-name: Pre Merge E2E test
-
+name: pre-merge
 on:
   pull_request:
     branches:
@@ -8,7 +7,7 @@ on:
 
 jobs:
   e2e-tests:
-    name: E2e-tests
+    name: e2e-tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -22,6 +21,11 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version-file: go.mod
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          args: --timeout=2m
       - name: Configure insecure registry
         run: |
           #sudo cat /etc/docker/daemon.json
@@ -45,7 +49,6 @@ jobs:
           insecure=true
           EOF"
           #sudo cat /etc/containers/registries.conf
-
       - name: Start kind cluster
         uses: container-tools/kind-action@v2
         with:
@@ -56,9 +59,9 @@ jobs:
           registry: true
       - name: Deploy cert-manager
         run: kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml
-      - name: Build nfspvc image
+      - name: Build image
         run: make docker-build docker-push IMG=${IMAGE_REGISTRY}/nfspvc-operator:test-${GITHUB_REF##*/}
       - name: Deploy to cluster
         run: make install deploy IMG=${IMAGE_REGISTRY}/nfspvc-operator:test-${GITHUB_REF##*/}
-      - name: E2e-test
+      - name: Run e2e tests
         run: make test-e2e
