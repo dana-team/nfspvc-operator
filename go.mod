@@ -4,7 +4,7 @@ go 1.21.6
 
 require (
 	github.com/go-logr/logr v1.4.1
-	github.com/onsi/ginkgo/v2 v2.14.0
+	github.com/onsi/ginkgo/v2 v2.15.0
 	github.com/onsi/gomega v1.30.0
 	golang.org/x/exp v0.0.0-20240110193028-0dcbfd608b1e
 	k8s.io/api v0.29.0
