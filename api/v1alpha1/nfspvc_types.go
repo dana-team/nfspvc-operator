@@ -23,15 +23,21 @@ import (
 
 // NfsPvcSpec defines the desired state of NfsPvc.
 type NfsPvcSpec struct {
-
 	// accessModes contains the desired access modes the volume should have(RWX, RWO, ROX).
+	//+kubebuilder:validation:XValidation:rule="self == oldSelf",message="AccessModes is immutable"
 	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes" protobuf:"bytes,3,rep,name=accessModes,casttype=PersistentVolumeAccessMode"`
+
 	// capacity is the description of the persistent volume's resources and capacity.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Capacity is immutable"
 	Capacity corev1.ResourceList `json:"capacity" protobuf:"bytes,1,rep,name=capacity,casttype=ResourceList,castkey=ResourceName"`
+
 	// path that is exported by the NFS server.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Path is immutable"
 	// +kubebuilder:validation:Pattern="^/"
 	Path string `json:"path" protobuf:"bytes,2,opt,name=path"`
-	// server is the hostname or IP address of the NFS server.
+
+	// server is the hostname or IP address of the NFS server
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Server is immutable"
 	// +kubebuilder:validation:MinLength=1
 	Server string `json:"server" protobuf:"bytes,1,opt,name=server"`
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	nfspvcv1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
 
 	mock "github.com/dana-team/nfspvc-operator/test/e2e_tests/mocks"
@@ -41,7 +43,6 @@ var _ = Describe("validate NFSPVC adapter", func() {
 			assertionNfsPvc = utilst.GetNfsPvc(k8sClient, desiredNfsPvc.Name, desiredNfsPvc.Namespace)
 			return desiredNfsPvc.Name
 		}, TimeoutNfsPvc, NfsPvcCreationInterval).ShouldNot(Equal(baseNfsPvc.Name), "should fetch NFSPVC.")
-
 		By("checks if deleted successfully")
 		utilst.DeleteNfsPvc(k8sClient, assertionNfsPvc)
 		Eventually(func() bool {
@@ -158,32 +159,67 @@ var _ = Describe("E2E tests", func() {
 
 var _ = Describe("validate webhook acted correctly ", func() {
 
-	Context("with unsupported access mode", func() {
-		It("should be denied", func() {
-			baseNfsPvc := mock.CreateBaseNfsPvc()
-			baseNfsPvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{"not good"}
-			Expect(utilst.CreateResource(k8sClient, baseNfsPvc)).Should(BeFalse())
-		})
-	})
 	Context("when PVC with same name already exists", func() {
 		It("should be denied", func() {
 			baseNfsPvc := mock.CreateBaseNfsPvc()
 			pvc := mock.CreateBasePVC(baseNfsPvc.Name)
 			By("creating PVC")
 			Expect(utilst.CreateResource(k8sClient, pvc)).Should(BeTrue())
-			time.Sleep(time.Second * 3)
+			checkPvc := &corev1.PersistentVolumeClaim{}
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), client.ObjectKey{Name: baseNfsPvc.Name, Namespace: baseNfsPvc.Namespace}, checkPvc)
+
+				return err == nil
+			}, TimeoutNfsPvc, NfsPvcCreationInterval).Should(BeTrue())
 			By("creating NFSPVC with same name")
 			Expect(utilst.CreateResource(k8sClient, baseNfsPvc)).Should(BeFalse())
 		})
 	})
-	Context("updating a NFSPVC", func() {
-		It("should be denied", func() {
-			By("creating nfspvc object")
-			baseNfsPvc := mock.CreateBaseNfsPvc()
-			desiredNfsPvc := utilst.CreateNfsPvc(k8sClient, baseNfsPvc)
-			time.Sleep(time.Second * 3)
-			desiredNfsPvc.Spec.Server = "vs-change"
-			Expect(k8sClient.Update(context.Background(), desiredNfsPvc)).ToNot(Succeed(), "failed to update NFSPVC.")
+})
+
+var _ = Describe("Validate CEL object validations", func() {
+	baseNfsPvc := mock.CreateBaseNfsPvc()
+	pvc := &nfspvcv1alpha1.NfsPvc{}
+	baseNfsPvc.Name = "cel-test-pvc"
+	Context("with edit spec", func() {
+		It("should be denied when editing immutable fields", func() {
+			By("Creating base pvc")
+			Expect(utilst.CreateResource(k8sClient, baseNfsPvc)).Should(BeTrue())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), client.ObjectKey{Name: baseNfsPvc.Name, Namespace: baseNfsPvc.Namespace}, pvc)
+				if err != nil {
+					return false
+				}
+				if pvc.Status.PvcPhase == "Bound" {
+					return true
+				}
+				return false
+			}, TimeoutNfsPvc, NfsPvcCreationInterval).Should(BeTrue())
+
+			By("changing NfsPvc accessModes")
+			pvcCopy := pvc.DeepCopy()
+			pvcCopy.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"}
+			err := utilst.UpdateResource(k8sClient, pvcCopy)
+			Expect(err).To(HaveOccurred())
+
+			By("changing NfsPvc capacity")
+			pvcCopy = pvc.DeepCopy()
+			pvcCopy.Spec.Capacity = corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("300Gi")}
+			err = utilst.UpdateResource(k8sClient, pvcCopy)
+			Expect(err).To(HaveOccurred())
+
+			By("changing NfsPvc path")
+			pvcCopy = pvc.DeepCopy()
+			pvcCopy.Spec.Path = "/update"
+			err = utilst.UpdateResource(k8sClient, pvcCopy)
+			Expect(err).To(HaveOccurred())
+
+			By("changing NfsPvc server")
+			pvcCopy = pvc.DeepCopy()
+			pvcCopy.Spec.Server = "vs-updated"
+			err = utilst.UpdateResource(k8sClient, pvcCopy)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })

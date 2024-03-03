@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -29,7 +28,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -60,7 +58,9 @@ func (r *NfsPvc) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:webhook:path=/validate-nfspvc-dana-io-v1alpha1-nfspvc,mutating=false,failurePolicy=fail,sideEffects=None,groups=nfspvc.dana.io,resources=nfspvcs,verbs=create;update,versions=v1alpha1,name=vnfspvc.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &NfsPvc{}
+type NfsPvcValidator struct {
+	NfsPvc
+}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *NfsPvc) ValidateCreate() (admission.Warnings, error) {
@@ -81,10 +81,6 @@ func (r *NfsPvc) ValidateCreate() (admission.Warnings, error) {
 func (r *NfsPvc) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	nfspvclog.Info("validate update", "name", r.Name)
 
-	if updated := r.isRestrictedFieldUpdated(old.(*NfsPvc)); updated {
-		return admission.Warnings{UpdateNfsPvcError}, fmt.Errorf(UpdateNfsPvcError)
-	}
-
 	return nil, nil
 }
 
@@ -93,23 +89,6 @@ func (r *NfsPvc) ValidateDelete() (admission.Warnings, error) {
 	nfspvclog.Info("validate delete", "name", r.Name)
 
 	return nil, nil
-}
-
-func (r *NfsPvc) isRestrictedFieldUpdated(old *NfsPvc) bool {
-	// modifying these fields is forbidden.
-	if !reflect.DeepEqual(r.Spec.Server, old.Spec.Server) {
-		return true
-	}
-	if !reflect.DeepEqual(r.Spec.Path, old.Spec.Path) {
-		return true
-	}
-	if !reflect.DeepEqual(r.Spec.AccessModes, old.Spec.AccessModes) {
-		return true
-	}
-	if !reflect.DeepEqual(r.Spec.Capacity, old.Spec.Capacity) {
-		return true
-	}
-	return false
 }
 
 func (r *NfsPvc) validateAccessMode(accessMode []corev1.PersistentVolumeAccessMode) bool {
