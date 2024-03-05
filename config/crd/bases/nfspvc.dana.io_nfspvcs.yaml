@@ -40,6 +40,9 @@ spec:
                 items:
                   type: string
                 type: array
+                x-kubernetes-validations:
+                - message: AccessModes is immutable
+                  rule: self == oldSelf
               capacity:
                 additionalProperties:
                   anyOf:
@@ -50,14 +53,23 @@ spec:
                 description: capacity is the description of the persistent volume's
                   resources and capacity.
                 type: object
+                x-kubernetes-validations:
+                - message: Capacity is immutable
+                  rule: self == oldSelf
               path:
                 description: path that is exported by the NFS server.
                 pattern: ^/
                 type: string
+                x-kubernetes-validations:
+                - message: Path is immutable
+                  rule: self == oldSelf
               server:
-                description: server is the hostname or IP address of the NFS server.
+                description: server is the hostname or IP address of the NFS server
                 minLength: 1
                 type: string
+                x-kubernetes-validations:
+                - message: Server is immutable
+                  rule: self == oldSelf
             required:
             - accessModes
             - capacity

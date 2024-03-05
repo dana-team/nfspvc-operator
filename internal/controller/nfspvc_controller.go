@@ -91,7 +91,7 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, nil
 	}
 	if err := finalizerutils.EnsureFinalizer(ctx, nfspvc, r.Client, logger); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to ensure finalizer in Capp: %s", err.Error())
+		return ctrl.Result{}, fmt.Errorf("failed to ensure finalizer in NfsPvc: %s", err.Error())
 	}
 
 	// now sync the objects to the nfspvc object.

@@ -15,6 +15,11 @@ func CreateResource(k8sClient client.Client, obj client.Object) bool {
 	return err == nil
 }
 
+func UpdateResource(k8sClient client.Client, obj client.Object) error {
+	err := k8sClient.Update(context.Background(), obj)
+	return err
+}
+
 // DoesResourceExist checks if a given Kubernetes object exists in the cluster.
 func DoesResourceExist(k8sClient client.Client, obj client.Object) bool {
 	copyObject := obj.DeepCopyObject().(client.Object)
