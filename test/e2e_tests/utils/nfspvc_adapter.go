@@ -6,6 +6,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/dana-team/nfspvc-operator/test/e2e_tests/testconsts"
+
 	. "github.com/onsi/gomega"
 
 	nfspvcv1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
@@ -39,14 +41,18 @@ func CreateNfsPvc(k8sClient client.Client, nfsPvc *nfspvcv1alpha1.NfsPvc) *nfspv
 	newNfsPvc := nfsPvc.DeepCopy()
 	newNfsPvc.Name = nfsPvcName
 	Expect(k8sClient.Create(context.Background(), newNfsPvc)).To(Succeed())
-	return newNfsPvc
 
+	Eventually(func() bool {
+		nfspvc := GetNfsPvc(k8sClient, newNfsPvc.Name, newNfsPvc.Namespace)
+		return len(nfspvc.Status.PvcPhase) > 0 && len(nfspvc.Status.PvPhase) > 0
+	}, testconsts.Timeout, testconsts.Interval).Should(Equal(true), "PV and PVC Phases should be bound.")
+
+	return newNfsPvc
 }
 
 // DeleteNfsPvc deletes an existing NfsPvc instance.
 func DeleteNfsPvc(k8sClient client.Client, nfsPvc *nfspvcv1alpha1.NfsPvc) {
 	Expect(k8sClient.Delete(context.Background(), nfsPvc)).To(Succeed(), "failed to delete NfsPvc")
-
 }
 
 // GetNfsPvc fetch existing and return an instance of NfsPvc.

@@ -66,6 +66,10 @@ func handlePVState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.L
 		}
 		// Use retry on conflict to update the PV.
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := k8sClient.Get(ctx, types.NamespacedName{Name: nfspvc.Name + "-" + nfspvc.Namespace + "-pv"}, &pv); err != nil {
+				return err
+			}
+
 			pv.Spec.ClaimRef = claimRefForPv
 			updateErr := k8sClient.Update(ctx, &pv)
 			if errors.IsConflict(updateErr) {
@@ -100,6 +104,9 @@ func handlePVCState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient
 		if ok && bindStatus == "yes" {
 			// Use retry on conflict to update the PVC.
 			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); err != nil {
+					return err
+				}
 				delete(pvc.ObjectMeta.Annotations, PvcBindStatusAnnotation)
 				updateErr := k8sClient.Update(ctx, &pvc)
 				if errors.IsConflict(updateErr) {

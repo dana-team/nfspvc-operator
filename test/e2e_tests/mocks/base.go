@@ -10,7 +10,8 @@ import (
 )
 
 var (
-	NsName = "nfspvc-e2e-tests"
+	NSName     = "nfspvc-e2e-tests"
+	NFSPVCName = "nfspvc-default-test"
 )
 
 func CreateBaseNfsPvc() *nfspvcv1alpha1.NfsPvc {
@@ -20,8 +21,8 @@ func CreateBaseNfsPvc() *nfspvcv1alpha1.NfsPvc {
 			APIVersion: "nfspvc.dana.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "nfspvc-default-test",
-			Namespace: NsName,
+			Name:      NFSPVCName,
+			Namespace: NSName,
 		},
 		Spec: nfspvcv1alpha1.NfsPvcSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{"ReadWriteMany"},
@@ -40,11 +41,11 @@ func CreateBasePVC(pvcName string) *corev1.PersistentVolumeClaim {
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,
-			Namespace: NsName,
+			Namespace: NSName,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			StorageClassName: &storageClass,
-			VolumeName:       pvcName + "-" + NsName + "-pv",
+			VolumeName:       pvcName + "-" + NSName + "-pv",
 			AccessModes:      []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
 			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("5Gi")},
