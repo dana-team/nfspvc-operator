@@ -1,0 +1,67 @@
+name: tests
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, reopened, synchronize]
+
+jobs:
+  unit-test:
+    name: unit-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run unit-tests
+        run: make test
+
+  e2e-tests:
+    name: e2e-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      IMAGE_REGISTRY: kind-registry:5000
+      KIND_VERSION: v0.18.0
+      K8S_VERSION: v1.26.3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Start kind cluster
+        uses: container-tools/kind-action@v2
+        with:
+          cluster_name: hub
+          version: ${{env.KIND_VERSION}}
+          node_image: kindest/node:${{env.K8S_VERSION}}
+          kubectl_version: ${{env.K8S_VERSION}}
+          registry: true
+
+      - name: Deploy cert-manager
+        run: kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml
+
+      - name: Build controller image
+        run: make docker-build docker-push IMG=${IMAGE_REGISTRY}/nfspvc-operator-system:test-${GITHUB_REF##*/}
+
+      - name: Deploy controller to cluster
+        run: make deploy IMG=${IMAGE_REGISTRY}/nfspvc-operator-system:test-${GITHUB_REF##*/}
+
+      - name: Await controller to be ready
+        uses: jupyterhub/action-k8s-await-workloads@v3
+        with:
+          workloads: ""
+          namespace: "nfspvc-operator-system"
+          max-restarts: 0
+
+      - name: Run e2e tests
+        run: make test-e2e
