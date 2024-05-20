@@ -34,9 +34,8 @@ import (
 var c client.Client
 
 const (
-	UpdateNfsPvcError      = "forbidden: NFSPVC spec is immutable after creation"
-	PVCAlreadyExists       = "a PVC of this name already exists in the namespace. Please rename your NFSPVC"
-	InvalidAccessModeError = "forbidden: only the following AccessModes are permitted"
+	pvcAlreadyExists       = "a PVC of this name already exists in the namespace. Please rename your NFSPVC"
+	invalidAccessModeError = "forbidden: only the following AccessModes are permitted"
 )
 
 var supportedAccessModes = sets.New(
@@ -67,11 +66,11 @@ func (r *NfsPvc) ValidateCreate() (admission.Warnings, error) {
 	nfspvclog.Info("validate create", "name", r.Name)
 
 	if r.doesPVCExist(c) {
-		return admission.Warnings{PVCAlreadyExists}, fmt.Errorf(PVCAlreadyExists)
+		return admission.Warnings{pvcAlreadyExists}, fmt.Errorf(pvcAlreadyExists)
 	}
 
 	if !r.validateAccessMode(r.Spec.AccessModes) {
-		return admission.Warnings{InvalidAccessModeError}, fmt.Errorf(InvalidAccessModeError+": %v", supportedAccessModes)
+		return admission.Warnings{invalidAccessModeError}, fmt.Errorf(invalidAccessModeError+": %v", supportedAccessModes)
 	}
 
 	return nil, nil

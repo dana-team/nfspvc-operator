@@ -35,7 +35,7 @@ import (
 
 	nfspvcv1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
 	"github.com/dana-team/nfspvc-operator/internal/controller"
-	utils "github.com/dana-team/nfspvc-operator/internal/controller/utils"
+	"github.com/dana-team/nfspvc-operator/internal/controller/utils"
 	//+kubebuilder:scaffold:imports
 )
 

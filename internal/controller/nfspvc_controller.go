@@ -18,16 +18,17 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	danaiov1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
-	finalizerutils "github.com/dana-team/nfspvc-operator/internal/controller/utils/finalizer"
-	statusutils "github.com/dana-team/nfspvc-operator/internal/controller/utils/status"
-	syncutils "github.com/dana-team/nfspvc-operator/internal/controller/utils/sync"
+	"github.com/dana-team/nfspvc-operator/internal/controller/finalizer"
+	"github.com/dana-team/nfspvc-operator/internal/controller/resources"
+	"github.com/dana-team/nfspvc-operator/internal/controller/status"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -68,34 +69,35 @@ func (r *NfsPvcReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("NfsPvc", req.Name, "NfsPvcNamespace", req.Namespace)
 	logger.Info("Starting Reconcile")
-
 	nfspvc := danaiov1alpha1.NfsPvc{}
 	if err := r.Client.Get(ctx, req.NamespacedName, &nfspvc); err != nil {
-		if errors.IsNotFound(err) {
-			logger.Info(fmt.Sprintf("Didn't find NfsPvc: %s, from the namespace: %s", nfspvc.Name, nfspvc.Namespace))
+		if apierrors.IsNotFound(err) {
+			logger.Info("Didn't find NfsPvc")
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to get NfsPvc: %s", err.Error())
 	}
-
-	err, deleted := finalizerutils.HandleResourceDeletion(ctx, nfspvc, logger, r.Client)
-	if err != nil {
-		if finalizerutils.IsFailedCleanUp(err) {
-			// this means the error is of type *FailedCleanUpError.
-			logger.Info(fmt.Sprintf("failed to handle NfsPvc deletion: %s, so trying again in a few seconds", err.Error()))
-			return ctrl.Result{RequeueAfter: time.Second * RequeueIntervalSeconds}, nil
+	if nfspvc.ObjectMeta.DeletionTimestamp != nil {
+		deleted, err := resources.HandleDelete(ctx, nfspvc, r.Client)
+		if err != nil {
+			if errors.Is(err, resources.FailedCleanupError) {
+				logger.Info(fmt.Sprintf("failed to handle NfsPvc deletion: %s, so trying again in a few seconds", err.Error()))
+				return ctrl.Result{RequeueAfter: time.Second * RequeueIntervalSeconds}, nil
+			}
+			return ctrl.Result{}, fmt.Errorf("failed to handle NfsPvc deletion: %s", err.Error())
 		}
-		return ctrl.Result{}, fmt.Errorf("failed to handle NfsPvc deletion: %s", err.Error())
+		if deleted {
+			if err := finalizer.Remove(ctx, nfspvc, r.Client); err != nil {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
+		}
 	}
-	if deleted {
-		return ctrl.Result{}, nil
-	}
-	if err := finalizerutils.EnsureFinalizer(ctx, nfspvc, r.Client, logger); err != nil {
+
+	if err := finalizer.Ensure(ctx, nfspvc, r.Client); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to ensure finalizer in NfsPvc: %s", err.Error())
 	}
-
-	// now sync the objects to the nfspvc object.
-	if err := SyncNfsPvc(ctx, nfspvc, logger, r.Client); err != nil {
+	if err := r.Update(ctx, nfspvc); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to sync NfsPvc: %s", err.Error())
 	}
 
@@ -132,16 +134,15 @@ func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolumeClaim(ctx context.
 	return requests
 }
 
-func SyncNfsPvc(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, log logr.Logger, k8sClient client.Client) error {
+// Update handles any update to an NFSPVC.
+func (r *NfsPvcReconciler) Update(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc) error {
 	if nfspvc.ObjectMeta.DeletionTimestamp == nil {
-		if err := syncutils.CreateOrUpdateStorageObjects(ctx, nfspvc, log, k8sClient); err != nil {
+		if err := resources.HandleStorageObjectState(ctx, nfspvc, r.Client); err != nil {
 			return err
 		}
 	}
-
-	if err := statusutils.SyncNfsPvcStatus(ctx, nfspvc, log, k8sClient); err != nil {
+	if err := status.Update(ctx, nfspvc, r.Client); err != nil {
 		return err
 	}
-
 	return nil
 }
