@@ -8,42 +8,45 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+const (
+	StorageClassEnv  = "STORAGE_CLASS"
+	ReclaimPolicyEnv = "RECLAIM_POLICY"
+
+	UndefinedEnvironmentVariableMsg = "failed to get configuration environment variable"
+	InvalidReclaimPolicyMsg         = "invalid default Persistent Volume Reclaim Policy"
+
+	NfsPvcDeletionFinalizer = "nfspvc.dana.io/nfspvc-protection"
+)
+
 var AllowedReclaimPolicies = []corev1.PersistentVolumeReclaimPolicy{
 	corev1.PersistentVolumeReclaimRecycle,
 	corev1.PersistentVolumeReclaimDelete,
 	corev1.PersistentVolumeReclaimRetain,
 }
+var ReclaimPolicy string
+var StorageClass string
 
-const (
-	STORAGE_CLASS_ENV  = "STORAGE_CLASS"
-	RECLAIM_POLICY_ENV = "RECLAIM_POLICY"
-
-	UNDEFINED_ENVIRONMENT_VARIABLE_MSG = "failed to get configuration environment variable"
-	INVALID_RECLAIM_POLICY_MSG         = "invalid default Persistent Volume Reclaim Policy"
-)
-
+// VerifyEnvironmentVariables ensures the StorageClass and ReclaimPolicy env variables are set and valid.
 func VerifyEnvironmentVariables() (bool, string) {
-	if !doesEnvironmentVariableExist() {
-		return false, UNDEFINED_ENVIRONMENT_VARIABLE_MSG
+	storageClass, ok := os.LookupEnv(StorageClassEnv)
+	if !ok {
+		return false, UndefinedEnvironmentVariableMsg
 	}
-
-	if !doesReclaimPolicyValid(os.Getenv(RECLAIM_POLICY_ENV)) {
-		return false, INVALID_RECLAIM_POLICY_MSG
+	StorageClass = storageClass
+	reclaimPolicy, ok := os.LookupEnv(ReclaimPolicyEnv)
+	if !ok {
+		return false, UndefinedEnvironmentVariableMsg
 	}
+	if !isReclaimPolicyValid(reclaimPolicy) {
+		return false, InvalidReclaimPolicyMsg
+	}
+	ReclaimPolicy = reclaimPolicy
 
 	return true, ""
 }
 
-func doesEnvironmentVariableExist() bool {
-	storageClass := os.Getenv(STORAGE_CLASS_ENV)
-	reclaimPolicy := os.Getenv(RECLAIM_POLICY_ENV)
-	if storageClass == "" || reclaimPolicy == "" {
-		return false
-	}
-	return true
-}
-
-func doesReclaimPolicyValid(reclaimPolicy string) bool {
+// isReclaimPolicyValid checks if given reclaimPolicy is one of the AllowedReclaimPolicies.
+func isReclaimPolicyValid(reclaimPolicy string) bool {
 	policy := corev1.PersistentVolumeReclaimPolicy(reclaimPolicy)
 	return slices.Contains(AllowedReclaimPolicies, policy)
 }
