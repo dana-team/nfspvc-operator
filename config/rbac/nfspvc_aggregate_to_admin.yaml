@@ -13,4 +13,4 @@ metadata:
 rules:
 - apiGroups: ["nfspvc.dana.io"]
   resources: ["nfspvcs"]
-  verbs: ["get", "list", "watch", "create", "delete", "update", "list"]	
+  verbs: ["get", "list", "watch", "create", "delete", "update", "list", "patch"]
