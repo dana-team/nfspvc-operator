@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-metrics-service
+  labels:
+    {{- include "nfspvc-operator.labels" . | nindent 4 }}
+spec:
+  ports:
+  - name: https
+    port: {{ .Values.service.httpsPort }}
+    protocol: {{ .Values.service.protocol }}
+    targetPort: {{ .Values.service.targetPort }}
+  selector:
+    control-plane: controller-manager

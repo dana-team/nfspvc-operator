@@ -1,7 +1,0 @@
-apiVersion: v2
-name: nfspvc
-description: A Helm chart for operator to easily connect third-party NFS to workloads using a NfsPvc CRD
-type: application
-version: 0.1.0
-appVersion: latest
-kubeVersion: ">=1.25.0-0"

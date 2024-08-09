@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.config.name }}
+  labels:
+    {{- include "nfspvc-operator.labels" . | nindent 4 }}
+data:
+  RECLAIM_POLICY: {{ .Values.config.reclaimPolicy | quote }}
+  STORAGE_CLASS: {{ .Values.config.storageClass | quote }}
