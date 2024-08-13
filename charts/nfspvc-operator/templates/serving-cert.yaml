@@ -1,0 +1,14 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "nfspvc-operator.fullname" . }}-serving-cert
+  labels:
+    {{- include "nfspvc-operator.labels" . | nindent 4 }}
+spec:
+  dnsNames:
+  - {{ include "nfspvc-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc
+  - {{ include "nfspvc-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc.{{ .Values.kubernetesClusterDomain }}
+  issuerRef:
+    kind: Issuer
+    name: {{ include "nfspvc-operator.fullname" . }}-selfsigned-issuer
+  secretName: webhook-server-cert

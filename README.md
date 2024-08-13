@@ -6,6 +6,16 @@ The `nfspvc-operator` is an operator that reconciles `NfsPvc` CRs.
 
 This is useful when you have an already-created NFS, which you would like to mount in different places (Kubernetes Pod, Virtual Machine, etc...).
 
+## Install with Helm
+
+Helm chart docs are available on `charts/nfspvc-operator` directory. 
+
+Make sure `cert-manager` is [installed](https://cert-manager.io/docs/installation/helm/) as a prerequisite.
+
+```
+$ helm upgrade --install nfspvc-operator --namespace nfspvc-operator --create-namespace oci://ghcr.io/dana-team/helm-charts/nfspvc-operator --version <release>
+```
+
 ## How to Use
 
 An example `NfsPvc` CR looks as follows:
