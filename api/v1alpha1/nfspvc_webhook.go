@@ -18,10 +18,12 @@ package v1alpha1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -66,7 +68,7 @@ func (r *NfsPvc) ValidateCreate() (admission.Warnings, error) {
 	nfspvclog.Info("validate create", "name", r.Name)
 
 	if r.doesPVCExist(c) {
-		return admission.Warnings{pvcAlreadyExists}, fmt.Errorf(pvcAlreadyExists)
+		return admission.Warnings{pvcAlreadyExists}, errors.New(pvcAlreadyExists)
 	}
 
 	if !r.validateAccessMode(r.Spec.AccessModes) {
@@ -102,7 +104,7 @@ func (r *NfsPvc) validateAccessMode(accessMode []corev1.PersistentVolumeAccessMo
 func (r *NfsPvc) doesPVCExist(K8sClient client.Client) bool {
 	pvc := corev1.PersistentVolumeClaim{}
 	if err := K8sClient.Get(context.Background(), types.NamespacedName{Namespace: r.Namespace, Name: r.Name}, &pvc); err != nil {
-		if errors.IsNotFound(err) {
+		if k8sErrors.IsNotFound(err) {
 			return false
 		}
 	}
