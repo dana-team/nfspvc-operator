@@ -8,16 +8,6 @@ rules:
   - ""
   resources:
   - persistentvolumeclaims
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - persistentvolumes
   verbs:
   - create
