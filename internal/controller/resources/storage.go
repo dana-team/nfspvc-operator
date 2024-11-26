@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
@@ -43,6 +44,12 @@ func PreparePVC(nfspvc danaiov1alpha1.NfsPvc, StorageClass string) corev1.Persis
 // PreparePV returns a PV with the given storageclass and reclaimpolicy.
 func PreparePV(nfspvc danaiov1alpha1.NfsPvc, StorageClass string, ReclaimPolicy string) corev1.PersistentVolume {
 	var pvName = nfspvc.Name + "-" + nfspvc.Namespace + "-pv"
+	var mountOptions []string = nil
+
+	if nfspvc.Spec.NfsVersion != "" {
+		mountOptions = []string{fmt.Sprintf("nfsvers=%s", nfspvc.Spec.NfsVersion)}
+	}
+
 	return corev1.PersistentVolume{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
@@ -67,6 +74,7 @@ func PreparePV(nfspvc danaiov1alpha1.NfsPvc, StorageClass string, ReclaimPolicy 
 					Path:   nfspvc.Spec.Path,
 				},
 			},
+			MountOptions: mountOptions,
 		},
 	}
 }
