@@ -7,3 +7,7 @@ const (
 	Interval          = 2 * time.Second
 	DefaultEventually = 2 * time.Second
 )
+
+const (
+	NfsVersion = "v4"
+)

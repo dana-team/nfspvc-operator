@@ -15,3 +15,4 @@ spec:
       storage: 200G
   path: /noki
   server: vs-nas-noki
+  nfsVersion: v4

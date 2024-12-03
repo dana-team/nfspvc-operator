@@ -2,6 +2,8 @@ package e2e_tests
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	nfspvcv1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
 	"github.com/dana-team/nfspvc-operator/test/e2e_tests/testconsts"
@@ -136,5 +138,51 @@ var _ = Describe("validate NFSPVC controller functionality", func() {
 
 		By("deleting the NFSPVC")
 		utilst.DeleteNfsPvc(k8sClient, desiredNfsPvc)
+	})
+
+	It("Should add the nfs version to the mountOption in the pv when nfs version is specified", func() {
+		baseNfsPvc := mock.CreateBaseNfsPvc()
+		desiredNfsPvc := utilst.CreateNfsPvc(k8sClient, baseNfsPvc)
+		desiredNfsPvc.Spec.NfsVersion = testconsts.NfsVersion
+
+		By("checking if PV exists")
+		pv := corev1.PersistentVolume{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: desiredNfsPvc.Name + "-" + desiredNfsPvc.Namespace + "-pv",
+			},
+			Spec: corev1.PersistentVolumeSpec{
+				MountOptions: []string{fmt.Sprintf("nfsvers=%s", testconsts.NfsVersion)},
+			},
+		}
+		Eventually(func() bool {
+			return utilst.DoesResourceExist(k8sClient, &pv)
+		}, testconsts.Timeout, testconsts.Interval).Should(BeTrue(), "should fetch pv.")
+
+		By("Checking if the pv's mountOption is not empty")
+		Eventually(func() string {
+			mountOptionsString := strings.Join(pv.Spec.MountOptions, ",")
+			return mountOptionsString
+		}, testconsts.Timeout, testconsts.Interval).Should(ContainSubstring(desiredNfsPvc.Spec.NfsVersion), "should have mountOptions.")
+	})
+
+	It("Shouldn't add the nfs version to the mountOption in the pv if there is not version in the nfspvc", func() {
+		baseNfsPvc := mock.CreateBaseNfsPvc()
+		desiredNfsPvc := utilst.CreateNfsPvc(k8sClient, baseNfsPvc)
+
+		By("checking if PV exists")
+		pv := corev1.PersistentVolume{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: desiredNfsPvc.Name + "-" + desiredNfsPvc.Namespace + "-pv",
+			},
+		}
+		Eventually(func() bool {
+			return utilst.DoesResourceExist(k8sClient, &pv)
+		}, testconsts.Timeout, testconsts.Interval).Should(BeTrue(), "should fetch pv.")
+
+		By("Checking if the pv's mountOption is empty")
+		Eventually(func() string {
+			mountOptionsString := strings.Join(pv.Spec.MountOptions, ",")
+			return mountOptionsString
+		}, testconsts.Timeout, testconsts.Interval).Should(BeEmpty(), "should not have mountOptions.")
 	})
 })

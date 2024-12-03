@@ -40,6 +40,11 @@ type NfsPvcSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Server is immutable"
 	// +kubebuilder:validation:MinLength=1
 	Server string `json:"server" protobuf:"bytes,1,opt,name=server"`
+
+	// nfsVersion specifies the version of the NFS protocol to use (v3 or v4).
+	// +kubebuilder:validation:Enum=v3;v4
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="NFS Version is immutable"
+	NfsVersion string `json:"nfsVersion,omitempty" protobuf:"bytes,4,opt,name=nfsVersion"`
 }
 
 // NfsPvcStatus defines the observed state of NfsPvc.
