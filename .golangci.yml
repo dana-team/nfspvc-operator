@@ -1,30 +1,42 @@
-# https://golangci-lint.run/usage/quick-start/
 run:
-  timeout: 12m
-  skip-dirs:
-    - images
-    - hack
-    - solutions
-    - vendor
+  timeout: 5m
+  allow-parallel-runners: true
+
+issues:
+  # don't skip warning about doc comments
+  # don't exclude the default set of lint
+  exclude-use-default: false
+  # restore some of the defaults
+  # (fill in the rest as needed)
+  exclude-rules:
+    - path: "internal/*"
+      linters:
+        - dupl
 linters:
+  disable-all: true
   enable:
-    - asasalint
-    - bidichk
-    - bodyclose
+    - dupl
     - errcheck
-    - exportloopref
+    - copyloopvar
+    - ginkgolinter
+    - goconst
+    - gocyclo
+    - gofmt
     - goimports
-    - gosec
     - gosimple
     - govet
     - ineffassign
     - misspell
     - nakedret
-    - nosprintfhostport
-    - reassign
-    - rowserrcheck
-    - sqlclosecheck
+    - prealloc
+    - revive
     - staticcheck
     - typecheck
+    - unconvert
     - unparam
     - unused
+
+linters-settings:
+  revive:
+    rules:
+      - name: comment-spacings

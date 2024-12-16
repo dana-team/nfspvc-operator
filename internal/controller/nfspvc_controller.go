@@ -60,11 +60,11 @@ func (r *NfsPvcReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-//+kubebuilder:rbac:groups="",resources=persistentvolumes,verbs=get;list;watch;create;update;delete
-//+kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;delete
-//+kubebuilder:rbac:groups=nfspvc.dana.io,resources=nfspvcs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=nfspvc.dana.io,resources=nfspvcs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=nfspvc.dana.io,resources=nfspvcs/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=persistentvolumes,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=nfspvc.dana.io,resources=nfspvcs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=nfspvc.dana.io,resources=nfspvcs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=nfspvc.dana.io,resources=nfspvcs/finalizers,verbs=update
 
 func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("NfsPvc", req.Name, "NfsPvcNamespace", req.Namespace)

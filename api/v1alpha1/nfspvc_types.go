@@ -1,5 +1,5 @@
 /*
-Copyright 2023.
+Copyright 2024.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 // NfsPvcSpec defines the desired state of NfsPvc.
 type NfsPvcSpec struct {
 	// accessModes contains the desired access modes the volume should have(RWX, RWO, ROX).
-	//+kubebuilder:validation:XValidation:rule="self == oldSelf",message="AccessModes is immutable"
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="AccessModes is immutable"
 	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes" protobuf:"bytes,3,rep,name=accessModes,casttype=PersistentVolumeAccessMode"`
 
 	// capacity is the description of the persistent volume's resources and capacity.
@@ -55,8 +55,8 @@ type NfsPvcStatus struct {
 	PvPhase string `json:"pvPhase,omitempty" protobuf:"bytes,3,opt,name=pvPhase"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // NfsPvc is the Schema for the nfspvcs API
 type NfsPvc struct {
@@ -67,7 +67,7 @@ type NfsPvc struct {
 	Status NfsPvcStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // NfsPvcList contains a list of NfsPvc
 type NfsPvcList struct {

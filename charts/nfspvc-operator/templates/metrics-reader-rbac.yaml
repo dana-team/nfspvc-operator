@@ -6,6 +6,6 @@ metadata:
     {{- include "nfspvc-operator.labels" . | nindent 4 }}
 rules:
 - nonResourceURLs:
-  - "/metrics"
+  - /metrics
   verbs:
   - get

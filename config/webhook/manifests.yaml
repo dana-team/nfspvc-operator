@@ -24,3 +24,23 @@ webhooks:
     resources:
     - nfspvcs
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-nfspvc-dana-io-v1alpha1-nfspvc
+  failurePolicy: Fail
+  name: vnfspvc-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - nfspvc.dana.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - nfspvcs
+  sideEffects: None

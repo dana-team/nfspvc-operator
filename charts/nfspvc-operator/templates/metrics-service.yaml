@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-metrics-service
+  name: {{ include "nfspvc-operator.fullname" . }}-metrics-service
   labels:
     {{- include "nfspvc-operator.labels" . | nindent 4 }}
 spec:

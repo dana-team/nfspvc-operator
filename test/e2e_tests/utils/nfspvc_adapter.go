@@ -36,7 +36,7 @@ func generateRandomString(length int) (string, error) {
 // CreateNfsPvc creates a new NfsPvc instance with a unique name and returns it.
 func CreateNfsPvc(k8sClient client.Client, nfsPvc *nfspvcv1alpha1.NfsPvc) *nfspvcv1alpha1.NfsPvc {
 	randString, err := generateRandomString(RandStrLength)
-	Expect(err).To(BeNil())
+	Expect(err).ToNot(HaveOccurred())
 	nfsPvcName := nfsPvc.Name + "-" + randString
 	newNfsPvc := nfsPvc.DeepCopy()
 	newNfsPvc.Name = nfsPvcName
@@ -45,7 +45,7 @@ func CreateNfsPvc(k8sClient client.Client, nfsPvc *nfspvcv1alpha1.NfsPvc) *nfspv
 	Eventually(func() bool {
 		nfspvc := GetNfsPvc(k8sClient, newNfsPvc.Name, newNfsPvc.Namespace)
 		return len(nfspvc.Status.PvcPhase) > 0 && len(nfspvc.Status.PvPhase) > 0
-	}, testconsts.Timeout, testconsts.Interval).Should(Equal(true), "PV and PVC Phases should be bound.")
+	}, testconsts.Timeout, testconsts.Interval).Should(BeTrue(), "PV and PVC Phases should be bound.")
 
 	return newNfsPvc
 }

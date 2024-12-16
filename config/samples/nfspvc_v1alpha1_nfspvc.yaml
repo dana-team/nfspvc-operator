@@ -4,9 +4,9 @@ metadata:
   labels:
     app.kubernetes.io/name: test1
     app.kubernetes.io/instance: test1
-    app.kubernetes.io/part-of: nfs-operator
+    app.kubernetes.io/part-of: nfspvc-operator
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: nfs-operator
+    app.kubernetes.io/created-by: nfspvc-operator
   name: test4
 spec:
   accessModes:
