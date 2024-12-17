@@ -64,7 +64,7 @@ var _ = Describe("validate NFSPVC controller functionality", func() {
 		Eventually(func() bool {
 			nfspvc := utilst.GetNfsPvc(k8sClient, desiredNfsPvc.Name, desiredNfsPvc.Namespace)
 			return nfspvc.Status.PvcPhase == string(corev1.ClaimBound) && nfspvc.Status.PvPhase == string(corev1.VolumeBound)
-		}, testconsts.Timeout, testconsts.Interval).Should(Equal(true), "PV and PVC Phases should be bound.")
+		}, testconsts.Timeout, testconsts.Interval).Should(BeTrue(), "PV and PVC Phases should be bound.")
 
 		By("deleting the NFSPVC")
 		utilst.DeleteNfsPvc(k8sClient, desiredNfsPvc)
