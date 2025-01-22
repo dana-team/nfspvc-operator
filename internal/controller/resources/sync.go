@@ -10,7 +10,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -82,20 +81,14 @@ func handlePVCState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient
 func deletePVCBindAnnotation(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient client.Client, pvc corev1.PersistentVolumeClaim) error {
 	bindStatus, ok := pvc.ObjectMeta.Annotations[pvcBindStatusAnnotation]
 	if ok && bindStatus == desiredBindStatus {
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); err != nil {
-				return err
-			}
+		getObject := func() error {
+			return k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc)
+		}
+		updateObject := func() error {
 			delete(pvc.ObjectMeta.Annotations, pvcBindStatusAnnotation)
-			updateErr := k8sClient.Update(ctx, &pvc)
-			if errors.IsConflict(updateErr) {
-				if getErr := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); getErr != nil {
-					return getErr
-				}
-			}
-			return updateErr
-		})
-		return err
+			return k8sClient.Update(ctx, &pvc)
+		}
+		return utils.RetryOnConflictUpdate(ctx, k8sClient, getObject, updateObject)
 	}
 	return nil
 }

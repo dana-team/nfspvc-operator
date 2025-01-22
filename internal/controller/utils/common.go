@@ -1,7 +1,11 @@
 package utils
 
 import (
+	"context"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/retry"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"golang.org/x/exp/slices"
 
@@ -49,4 +53,16 @@ func VerifyEnvironmentVariables() (bool, string) {
 func isReclaimPolicyValid(reclaimPolicy string) bool {
 	policy := corev1.PersistentVolumeReclaimPolicy(reclaimPolicy)
 	return slices.Contains(AllowedReclaimPolicies, policy)
+}
+
+func RetryOnConflictUpdate(ctx context.Context, k8sClient client.Client, getObject func() error, updateObject func() error) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		updateErr := updateObject()
+		if errors.IsConflict(updateErr) {
+			if getErr := getObject(); getErr != nil {
+				return getErr
+			}
+		}
+		return updateErr
+	})
 }
