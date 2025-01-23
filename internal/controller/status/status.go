@@ -2,12 +2,12 @@ package status
 
 import (
 	"context"
+	"github.com/dana-team/nfspvc-operator/internal/controller/utils"
 
 	danaiov1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -28,18 +28,15 @@ func Update(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient client.
 
 // ensure updates the status of the nfspvc to match the state of the underlying PVC.
 func ensure(ctx context.Context, pvcPhase string, pvPhase string, nfspvcObject danaiov1alpha1.NfsPvc, k8sClient client.Client) error {
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	getObject := func() error {
+		return k8sClient.Get(ctx, types.NamespacedName{Name: nfspvcObject.Name, Namespace: nfspvcObject.Namespace}, &nfspvcObject)
+	}
+	updateObject := func() error {
 		nfspvcObject.Status.PvcPhase = pvcPhase
 		nfspvcObject.Status.PvPhase = pvPhase
-		updateErr := k8sClient.Status().Update(ctx, &nfspvcObject)
-		if errors.IsConflict(updateErr) {
-			if getErr := k8sClient.Get(ctx, types.NamespacedName{Name: nfspvcObject.Name, Namespace: nfspvcObject.Namespace}, &nfspvcObject); getErr != nil {
-				return getErr
-			}
-		}
-		return updateErr
-	})
-	return err
+		return k8sClient.Status().Update(ctx, &nfspvcObject)
+	}
+	return utils.RetryOnConflictUpdate(ctx, k8sClient, getObject, updateObject)
 }
 
 // getPVCStatus returns the phase of the pvc.
