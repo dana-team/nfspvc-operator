@@ -12,7 +12,8 @@ The `Makefile` provides multiple targets for testing, building and running `nfsp
 
 ### Running unit tests
 
-In order to verify your changes didn't break anything, you can run `make test`. It runs unit tests, but also various other pre-build tasks, in order to ensure that none of them is forgotten.
+In order to verify your changes didn't break anything, you can run `make test`. It runs unit tests, but also various other pre-build tasks, in order to 
+ensure that none of them is forgotten.
 
 ```bash
 $ make test

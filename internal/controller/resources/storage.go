@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/retry"
+	"github.com/dana-team/nfspvc-operator/internal/controller/utils"
 
 	danaiov1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -80,26 +79,20 @@ func PreparePV(nfspvc danaiov1alpha1.NfsPvc, StorageClass string, ReclaimPolicy 
 }
 
 // UpdatePV updates the PV claim reference when the NFSPVC is updated.
-func UpdatePV(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient client.Client, pv corev1.PersistentVolume) error {
+func UpdatePV(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc, k8sClient client.Client, pv *corev1.PersistentVolume) error {
 	claimRefForPv := &corev1.ObjectReference{
 		Name:      nfspvc.Name,
 		Namespace: nfspvc.Namespace,
 		Kind:      corev1.ResourcePersistentVolumeClaims.String(),
 	}
-	var pvName = nfspvc.Name + "-" + nfspvc.Namespace + "-pv"
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := k8sClient.Get(ctx, types.NamespacedName{Name: pvName}, &pv); err != nil {
-			return err
-		}
+	pvName := nfspvc.Name + "-" + nfspvc.Namespace + "-pv"
 
-		pv.Spec.ClaimRef = claimRefForPv
-		updateErr := k8sClient.Update(ctx, &pv)
-		if errors.IsConflict(updateErr) {
-			if getErr := k8sClient.Get(ctx, types.NamespacedName{Name: pvName}, &pv); getErr != nil {
-				return getErr
-			}
-		}
-		return updateErr
+	if err := k8sClient.Get(ctx, types.NamespacedName{Name: pvName, Namespace: nfspvc.Namespace}, pv); err != nil {
+		return err
+	}
+
+	return utils.RetryOnConflictUpdate(ctx, k8sClient, pv, pvName, nfspvc.Namespace, func(obj *corev1.PersistentVolume) error {
+		obj.Spec.ClaimRef = claimRefForPv
+		return k8sClient.Update(ctx, obj)
 	})
-	return err
 }
