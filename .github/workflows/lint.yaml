@@ -28,3 +28,18 @@ jobs:
         with:
           version: latest
           args: --timeout=2m
+
+  helm-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+
+      - name: Install YAML Linter (`yamllint`)
+        run: sudo apt update && sudo apt install -y yamllint
+
+      - name: Run Helm Lint
+        run: helm lint charts/nfspvc-operator
