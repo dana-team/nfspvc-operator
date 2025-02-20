@@ -3,11 +3,12 @@ package status
 import (
 	"context"
 
+	"github.com/dana-team/nfspvc-operator/internal/controller/utils"
+
 	danaiov1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -21,25 +22,22 @@ func Update(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient client.
 	pvcPhase := getPVCStatus(ctx, nfspvc, k8sClient)
 	pvPhase := getPVStatus(ctx, nfspvc, k8sClient)
 	if pvcPhase != nfspvc.Status.PvcPhase || pvPhase != nfspvc.Status.PvPhase {
-		return ensure(ctx, pvcPhase, pvPhase, nfspvc, k8sClient)
+		return ensure(ctx, pvcPhase, pvPhase, &nfspvc, k8sClient)
 	}
 	return nil
 }
 
 // ensure updates the status of the nfspvc to match the state of the underlying PVC.
-func ensure(ctx context.Context, pvcPhase string, pvPhase string, nfspvcObject danaiov1alpha1.NfsPvc, k8sClient client.Client) error {
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		nfspvcObject.Status.PvcPhase = pvcPhase
-		nfspvcObject.Status.PvPhase = pvPhase
-		updateErr := k8sClient.Status().Update(ctx, &nfspvcObject)
-		if errors.IsConflict(updateErr) {
-			if getErr := k8sClient.Get(ctx, types.NamespacedName{Name: nfspvcObject.Name, Namespace: nfspvcObject.Namespace}, &nfspvcObject); getErr != nil {
-				return getErr
-			}
-		}
-		return updateErr
+func ensure(ctx context.Context, pvcPhase, pvPhase string, nfspvc *danaiov1alpha1.NfsPvc, k8sClient client.Client) error {
+	if err := k8sClient.Get(ctx, types.NamespacedName{Name: nfspvc.Name, Namespace: nfspvc.Namespace}, nfspvc); err != nil {
+		return err
+	}
+
+	return utils.RetryOnConflictUpdate(ctx, k8sClient, nfspvc, nfspvc.Name, nfspvc.Namespace, func(obj *danaiov1alpha1.NfsPvc) error {
+		obj.Status.PvcPhase = pvcPhase
+		obj.Status.PvPhase = pvPhase
+		return k8sClient.Status().Update(ctx, obj)
 	})
-	return err
 }
 
 // getPVCStatus returns the phase of the pvc.

@@ -10,7 +10,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -52,7 +51,7 @@ func handlePVState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient 
 		return fmt.Errorf("failed to fetch claimRef PVC: %s", err.Error())
 	}
 	if isClaimRefPVCDeleted {
-		return UpdatePV(ctx, nfspvc, k8sClient, pv)
+		return UpdatePV(ctx, &nfspvc, k8sClient, &pv)
 	}
 	return nil
 }
@@ -73,29 +72,23 @@ func handlePVCState(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient
 	}
 
 	if pvc.Status.Phase == corev1.ClaimLost { // if the pvc's phase is 'lost', so probably the associated pv was deleted
-		return deletePVCBindAnnotation(ctx, nfspvc, k8sClient, pvc)
+		return deletePVCBindAnnotation(ctx, &nfspvc, k8sClient, &pvc)
 	}
 	return nil
 }
 
 // deletePVCBindAnnotation deletes the "bind" annotation from a pvc.
-func deletePVCBindAnnotation(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient client.Client, pvc corev1.PersistentVolumeClaim) error {
-	bindStatus, ok := pvc.ObjectMeta.Annotations[pvcBindStatusAnnotation]
+func deletePVCBindAnnotation(ctx context.Context, nfspvc *danaiov1alpha1.NfsPvc, k8sClient client.Client, pvc *corev1.PersistentVolumeClaim) error {
+	bindStatus, ok := pvc.Annotations[pvcBindStatusAnnotation]
 	if ok && bindStatus == desiredBindStatus {
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); err != nil {
-				return err
-			}
-			delete(pvc.ObjectMeta.Annotations, pvcBindStatusAnnotation)
-			updateErr := k8sClient.Update(ctx, &pvc)
-			if errors.IsConflict(updateErr) {
-				if getErr := k8sClient.Get(ctx, types.NamespacedName{Namespace: nfspvc.Namespace, Name: nfspvc.Name}, &pvc); getErr != nil {
-					return getErr
-				}
-			}
-			return updateErr
+		if err := k8sClient.Get(ctx, types.NamespacedName{Name: nfspvc.Name, Namespace: nfspvc.Namespace}, pvc); err != nil {
+			return err
+		}
+
+		return utils.RetryOnConflictUpdate(ctx, k8sClient, pvc, nfspvc.Name, nfspvc.Namespace, func(obj *corev1.PersistentVolumeClaim) error {
+			delete(obj.Annotations, pvcBindStatusAnnotation)
+			return k8sClient.Update(ctx, obj)
 		})
-		return err
 	}
 	return nil
 }
