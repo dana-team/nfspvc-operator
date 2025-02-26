@@ -57,7 +57,7 @@ func (r *NfsPvc) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/validate-nfspvc-dana-io-v1alpha1-nfspvc,mutating=false,failurePolicy=fail,sideEffects=None,groups=nfspvc.dana.io,resources=nfspvcs,verbs=create;update,versions=v1alpha1,name=vnfspvc.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-nfspvc-dana-io-v1alpha1-nfspvc,mutating=false,failurePolicy=fail,sideEffects=None,groups=nfspvc.dana.io,resources=nfspvcs,verbs=create;update,versions=v1alpha1,name=vnfspvc-v1alpha1.kb.io,admissionReviewVersions=v1
 
 type NfsPvcValidator struct {
 	NfsPvc

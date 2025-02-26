@@ -27,8 +27,8 @@ jobs:
     timeout-minutes: 20
     env:
       IMAGE_REGISTRY: kind-registry:5000
-      KIND_VERSION: v0.18.0
-      K8S_VERSION: v1.26.3
+      KIND_VERSION: v0.25.0
+      K8S_VERSION: v1.31.2
     steps:
       - name: Checkout
         uses: actions/checkout@v4.2.2
@@ -44,11 +44,10 @@ jobs:
           cluster_name: hub
           version: ${{env.KIND_VERSION}}
           node_image: kindest/node:${{env.K8S_VERSION}}
-          kubectl_version: ${{env.K8S_VERSION}}
           registry: true
 
       - name: Deploy cert-manager
-        run: kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml
+        run: kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.17.0/cert-manager.yaml
 
       - name: Build controller image
         run: make docker-build docker-push IMG=${IMAGE_REGISTRY}/nfspvc-operator-system:test-${GITHUB_REF##*/}
@@ -62,6 +61,5 @@ jobs:
           workloads: ""
           namespace: "nfspvc-operator-system"
           max-restarts: 0
-
       - name: Run e2e tests
         run: make test-e2e
