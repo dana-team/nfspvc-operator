@@ -21,6 +21,8 @@ import (
 	"flag"
 	"os"
 
+	webhooknfspvcv1alpha1 "github.com/dana-team/nfspvc-operator/internal/webhook/v1alpha1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -156,7 +158,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "NfsPvc")
 		os.Exit(1)
 	}
-	if err = (&nfspvcv1alpha1.NfsPvc{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = webhooknfspvcv1alpha1.SetupNfsPvcWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "NfsPvc")
 		os.Exit(1)
 	}

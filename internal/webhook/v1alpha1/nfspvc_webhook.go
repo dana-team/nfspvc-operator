@@ -1,5 +1,5 @@
 /*
-Copyright 2023.
+Copyright 2025.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,9 @@ import (
 	"errors"
 	"fmt"
 
+	nfspvcv1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,8 +34,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
-
-var c client.Client
 
 const (
 	pvcAlreadyExists       = "a PVC of this name already exists in the namespace. Please rename your NFSPVC"
@@ -49,29 +49,34 @@ var supportedAccessModes = sets.New(
 
 // log is for logging in this package.
 var nfspvclog = logf.Log.WithName("nfspvc-resource")
+var _ webhook.CustomValidator = &NfsPvcCustomValidator{}
 
-func (r *NfsPvc) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	c = mgr.GetClient()
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+// SetupNfsPvcWebhookWithManager registers the webhook for NfsPvc in the manager.
+func SetupNfsPvcWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr).For(&nfspvcv1alpha1.NfsPvc{}).
+		WithValidator(&NfsPvcCustomValidator{c: mgr.GetClient()}).
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/validate-nfspvc-dana-io-v1alpha1-nfspvc,mutating=false,failurePolicy=fail,sideEffects=None,groups=nfspvc.dana.io,resources=nfspvcs,verbs=create;update,versions=v1alpha1,name=vnfspvc.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-nfspvc-dana-io-v1alpha1-nfspvc,mutating=false,failurePolicy=fail,sideEffects=None,groups=nfspvc.dana.io,resources=nfspvcs,verbs=create;update,versions=v1alpha1,name=vnfspvc-v1alpha1.kb.io,admissionReviewVersions=v1
 
-type NfsPvcValidator struct {
-	NfsPvc
+type NfsPvcCustomValidator struct {
+	c client.Client
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *NfsPvc) ValidateCreate() (admission.Warnings, error) {
-	nfspvclog.Info("validate create", "name", r.Name)
+func (v *NfsPvcCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	nfspvc, ok := obj.(*nfspvcv1alpha1.NfsPvc)
+	if !ok {
+		return nil, fmt.Errorf("expected a NfsPvc object but got %T", obj)
+	}
+	nfspvclog.Info("validate create", "name", nfspvc.Name)
 
-	if r.doesPVCExist(c) {
+	if v.doesPVCExist(v.c, nfspvc.Name, nfspvc.Namespace) {
 		return admission.Warnings{pvcAlreadyExists}, errors.New(pvcAlreadyExists)
 	}
 
-	if !r.validateAccessMode(r.Spec.AccessModes) {
+	if !v.validateAccessMode(nfspvc.Spec.AccessModes) {
 		return admission.Warnings{invalidAccessModeError}, fmt.Errorf(invalidAccessModeError+": %v", supportedAccessModes)
 	}
 
@@ -79,20 +84,28 @@ func (r *NfsPvc) ValidateCreate() (admission.Warnings, error) {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *NfsPvc) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	nfspvclog.Info("validate update", "name", r.Name)
+func (v *NfsPvcCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	nfspvc, ok := oldObj.(*nfspvcv1alpha1.NfsPvc)
+	if !ok {
+		return nil, fmt.Errorf("expected a NfsPvc object but got %T", oldObj)
+	}
+	nfspvclog.Info("validate update", "name", nfspvc.Name)
 
 	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *NfsPvc) ValidateDelete() (admission.Warnings, error) {
-	nfspvclog.Info("validate delete", "name", r.Name)
+func (v *NfsPvcCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	nfspvc, ok := obj.(*nfspvcv1alpha1.NfsPvc)
+	if !ok {
+		return nil, fmt.Errorf("expected a NfsPvc object but got %T", obj)
+	}
+	nfspvclog.Info("validate delete", "name", nfspvc.Name)
 
 	return nil, nil
 }
 
-func (r *NfsPvc) validateAccessMode(accessMode []corev1.PersistentVolumeAccessMode) bool {
+func (v *NfsPvcCustomValidator) validateAccessMode(accessMode []corev1.PersistentVolumeAccessMode) bool {
 	for _, mode := range accessMode {
 		if !supportedAccessModes.Has(mode) {
 			return false
@@ -101,9 +114,9 @@ func (r *NfsPvc) validateAccessMode(accessMode []corev1.PersistentVolumeAccessMo
 	return true
 }
 
-func (r *NfsPvc) doesPVCExist(K8sClient client.Client) bool {
+func (v *NfsPvcCustomValidator) doesPVCExist(K8sClient client.Client, pvcName, pvcNamespace string) bool {
 	pvc := corev1.PersistentVolumeClaim{}
-	if err := K8sClient.Get(context.Background(), types.NamespacedName{Namespace: r.Namespace, Name: r.Name}, &pvc); err != nil {
+	if err := K8sClient.Get(context.Background(), types.NamespacedName{Namespace: pvcNamespace, Name: pvcName}, &pvc); err != nil {
 		if k8sErrors.IsNotFound(err) {
 			return false
 		}

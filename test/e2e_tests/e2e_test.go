@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	nfspvcv1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
 	"github.com/dana-team/nfspvc-operator/test/e2e_tests/testconsts"
 
@@ -116,25 +118,28 @@ var _ = Describe("validate NFSPVC controller functionality", func() {
 			return utilst.GetResourceUid(k8sClient, &pvc)
 		}, testconsts.Timeout, testconsts.Interval).ShouldNot(Equal(previousPVCUid), "should be a different pvc.")
 
-		By("deleting the associated PV")
-		pv := corev1.PersistentVolume{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: desiredNfsPvc.Name + "-" + desiredNfsPvc.Namespace + "-pv",
-			},
+		// If the recreated PVC is not bound to the original PV, the PV should be deleted and recreated
+		By("Checking if the PV is in bound phase")
+		pvName := desiredNfsPvc.Name + "-" + desiredNfsPvc.Namespace + "-pv"
+		pv := &corev1.PersistentVolume{}
+		Expect(k8sClient.Get(context.Background(), types.NamespacedName{Name: pvName}, pv)).To(Succeed(), "should find pv.")
+
+		// Pv is not bound, delete it
+		if pv.Status.Phase != corev1.VolumeBound {
+			By("deleting the associated PV")
+			previousPVUid := pv.UID
+			Expect(k8sClient.Delete(context.Background(), pv)).To(Succeed(), "failed to delete pv.")
+
+			By("checking if the PV has been recreated")
+			Eventually(func() string {
+				pv := corev1.PersistentVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: desiredNfsPvc.Name + "-" + desiredNfsPvc.Namespace + "-pv",
+					},
+				}
+				return utilst.GetResourceUid(k8sClient, &pv)
+			}, testconsts.Timeout, testconsts.Interval).ShouldNot(Equal(previousPVUid), "should be a different pv.")
 		}
-
-		previousPVUid := utilst.GetResourceUid(k8sClient, &pv)
-		Expect(k8sClient.Delete(context.Background(), &pv)).To(Succeed(), "failed to delete pv.")
-
-		By("checking if the PV has been recreated")
-		Eventually(func() string {
-			pv := corev1.PersistentVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: desiredNfsPvc.Name + "-" + desiredNfsPvc.Namespace + "-pv",
-				},
-			}
-			return utilst.GetResourceUid(k8sClient, &pv)
-		}, testconsts.Timeout, testconsts.Interval).ShouldNot(Equal(previousPVUid), "should be a different pv.")
 
 		By("deleting the NFSPVC")
 		utilst.DeleteNfsPvc(k8sClient, desiredNfsPvc)
