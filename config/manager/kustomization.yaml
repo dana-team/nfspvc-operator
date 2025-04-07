@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: nfspvc
-  newTag: v0.0.4rc
+  newTag: latest
