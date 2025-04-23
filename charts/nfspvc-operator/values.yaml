@@ -137,3 +137,29 @@ volumes:
     secret:
       secretName: webhook-server-cert
       defaultMode: 420
+
+# -- Configuration for log aggregation using logging-operator.
+logAggregation:
+  # -- Enable log aggregation using logging-operator.
+  enabled: false
+  # -- Reference to Logging.
+  loggingRef: "logging"
+  # -- tls options for the log aggregation.
+  tlsOpts:
+    peer_verify: false
+    ssl_version: tlsv1_2
+  # -- Authentication options for the elasticsearch datastream.
+  auth:
+    # -- The username for the elasticsearch datastream.
+    user: "logger"
+    password:
+      # -- The name of the secret containing the logging password.
+      secretName: "logging-secret"
+      # -- The key in the secret containing the logging password.
+      key: "logging-password"
+      # -- The default value for the logging password
+      value: "password"
+  # -- The url for the elasticsearch datastream.
+  url: "https://logging-operator-logging-operator:9200/datastream-name/_bulk"
+  # -- Record formatting options for log aggregation.
+  record: ""

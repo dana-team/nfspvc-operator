@@ -18,6 +18,17 @@ A Helm chart for the nfspvc-operator.
 | livenessProbe.initialDelaySeconds | int | `15` | The initial delay before the liveness probe is initiated. |
 | livenessProbe.periodSeconds | int | `20` | The frequency (in seconds) with which the probe will be performed. |
 | livenessProbe.port | int | `8081` | The port for the health check endpoint. |
+| logAggregation | object | `{"auth":{"password":{"key":"logging-password","secretName":"logging-secret","value":"password"},"user":"logger"},"enabled":false,"loggingRef":"logging","record":"","tlsOpts":{"peer_verify":false,"ssl_version":"tlsv1_2"},"url":"https://logging-operator-logging-operator:9200/datastream-name/_bulk"}` | Configuration for log aggregation using logging-operator. |
+| logAggregation.auth | object | `{"password":{"key":"logging-password","secretName":"logging-secret","value":"password"},"user":"logger"}` | Authentication options for the elasticsearch datastream. |
+| logAggregation.auth.password.key | string | `"logging-password"` | The key in the secret containing the logging password. |
+| logAggregation.auth.password.secretName | string | `"logging-secret"` | The name of the secret containing the logging password. |
+| logAggregation.auth.password.value | string | `"password"` | The default value for the logging password |
+| logAggregation.auth.user | string | `"logger"` | The username for the elasticsearch datastream. |
+| logAggregation.enabled | bool | `false` | Enable log aggregation using logging-operator. |
+| logAggregation.loggingRef | string | `"logging"` | Reference to Logging. |
+| logAggregation.record | string | `""` | Record formatting options for log aggregation. |
+| logAggregation.tlsOpts | object | `{"peer_verify":false,"ssl_version":"tlsv1_2"}` | tls options for the log aggregation. |
+| logAggregation.url | string | `"https://logging-operator-logging-operator:9200/datastream-name/_bulk"` | The url for the elasticsearch datastream. |
 | manager | object | `{"args":["--leader-elect","--health-probe-bind-address=:8081","--metrics-bind-address=:8443"],"command":["/manager"],"ports":{"health":{"containerPort":8081,"name":"health","protocol":"TCP"},"https":{"containerPort":8443,"name":"https","protocol":"TCP"},"webhook":{"containerPort":9443,"name":"webhook-server","protocol":"TCP"}},"resources":{"limits":{"cpu":"500m","memory":"128Mi"},"requests":{"cpu":"10m","memory":"64Mi"}},"securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},"volumeMounts":[{"mountPath":"/tmp/k8s-webhook-server/serving-certs","name":"cert","readOnly":true}],"webhookServer":{"defaultMode":420,"secretName":"webhook-server-cert"}}` | Configuration for the manager container. |
 | manager.args | list | `["--leader-elect","--health-probe-bind-address=:8081","--metrics-bind-address=:8443"]` | Command-line arguments passed to the manager container. |
 | manager.command | list | `["/manager"]` | Command-line commands passed to the manager container. |

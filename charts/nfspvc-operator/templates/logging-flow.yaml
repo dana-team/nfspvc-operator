@@ -1,0 +1,11 @@
+{{ if .Values.logAggregation.enabled }}
+apiVersion: logging.banzaicloud.io/v1beta1
+kind: SyslogNGFlow
+metadata:
+  name: {{ include "nfspvc-operator.fullname" . }}-flow
+  labels: {{- include "nfspvc-operator.labels" . | nindent 4 }}
+spec:
+  localOutputRefs:
+    - {{ include "nfspvc-operator.fullname" . }}-output
+  loggingRef: {{ .Values.logAggregation.loggingRef }}
+{{end}}
