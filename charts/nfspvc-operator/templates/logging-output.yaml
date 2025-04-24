@@ -1,0 +1,18 @@
+{{ if .Values.logAggregation.enabled }}
+apiVersion: logging.banzaicloud.io/v1beta1
+kind: SyslogNGOutput
+metadata:
+  name: {{ include "nfspvc-operator.fullname" . }}-flow
+  labels: {{- include "nfspvc-operator.labels" . | nindent 4 }}
+spec:
+  loggingRef: {{ .Values.logAggregation.loggingRef }}
+  elasticsearch-datastream:
+    user: {{ .Values.logAggregation.auth.user }}
+    password:
+      valueFrom:
+        secretKeyRef:
+          name: {{ .Values.logAggregation.auth.password.secretName }}
+          key: {{ .Values.logAggregation.auth.password.key }}
+    tls: {{ toYaml .Values.logAggregation.tlsOpts | nindent 6 }}
+    url: {{ .Values.logAggregation.record }}
+{{ end }}
