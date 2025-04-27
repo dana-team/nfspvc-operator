@@ -14,5 +14,6 @@ spec:
           name: {{ .Values.logAggregation.auth.password.secretName }}
           key: {{ .Values.logAggregation.auth.password.key }}
     tls: {{ toYaml .Values.logAggregation.tlsOpts | nindent 6 }}
-    url: {{ .Values.logAggregation.record }}
+    url: {{ .Values.logAggregation.url }}
+    record: {{ .Values.logAggregation.record }}
 {{ end }}
