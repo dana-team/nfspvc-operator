@@ -2,7 +2,7 @@
 apiVersion: logging.banzaicloud.io/v1beta1
 kind: SyslogNGOutput
 metadata:
-  name: {{ include "nfspvc-operator.fullname" . }}-flow
+  name: {{ include "nfspvc-operator.fullname" . }}-output
   labels: {{- include "nfspvc-operator.labels" . | nindent 4 }}
 spec:
   loggingRef: {{ .Values.logAggregation.loggingRef }}
