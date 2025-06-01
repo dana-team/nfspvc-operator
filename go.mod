@@ -3,7 +3,7 @@ module github.com/dana-team/nfspvc-operator
 go 1.23.4
 
 require (
-	github.com/go-logr/logr v1.4.2
+	github.com/go-logr/logr v1.4.3
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
