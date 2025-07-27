@@ -181,7 +181,7 @@ HELM_URL ?= https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
 KUSTOMIZE_VERSION ?= v5.5.0
 CONTROLLER_TOOLS_VERSION ?= v0.16.4
 ENVTEST_VERSION ?= release-0.19
-GOLANGCI_LINT_VERSION ?= v2.0.2
+GOLANGCI_LINT_VERSION ?= v2.3.0
 HELM_DOCS_VERSION ?= v1.14.2
 
 .PHONY: kustomize

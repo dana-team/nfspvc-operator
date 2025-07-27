@@ -62,15 +62,15 @@ spec:
                 - message: Capacity is immutable
                   rule: self == oldSelf
               nfsVersion:
+                default: "3"
                 description: nfsVersion specifies the version of the NFS protocol
-                  to use (v3 or v4).
+                  to use .
                 enum:
-                - v3
-                - v4
+                - "3"
+                - "4"
+                - "4.1"
+                - "4.2"
                 type: string
-                x-kubernetes-validations:
-                - message: NFS Version is immutable
-                  rule: self == oldSelf
               path:
                 description: path that is exported by the NFS server.
                 pattern: ^/

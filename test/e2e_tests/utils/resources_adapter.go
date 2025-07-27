@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	. "github.com/onsi/ginkgo/v2"
+	gingko "github.com/onsi/ginkgo/v2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -28,7 +28,7 @@ func DoesResourceExist(k8sClient client.Client, obj client.Object) bool {
 	if errors.IsNotFound(err) {
 		return false
 	} else if err != nil {
-		Fail(fmt.Sprintf("The function failed with error: \n %s", err.Error()))
+		gingko.Fail(fmt.Sprintf("The function failed with error: \n %s", err.Error()))
 	}
 	return true
 }
@@ -41,7 +41,7 @@ func GetResourceUid(k8sClient client.Client, obj client.Object) string {
 	if errors.IsNotFound(err) {
 		return ""
 	} else if err != nil {
-		Fail(fmt.Sprintf("The function failed with error: \n %s", err.Error()))
+		gingko.Fail(fmt.Sprintf("The function failed with error: \n %s", err.Error()))
 	}
 	return string(copyObject.GetUID())
 }
