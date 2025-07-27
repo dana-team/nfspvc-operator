@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var FailedCleanupError = errors.New("failed nfspvc cleanup")
+var ErrFailedCleanup = errors.New("failed nfspvc cleanup")
 
 // HandleDelete ensures the deletion of the nfspvc.
 func HandleDelete(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient client.Client) (bool, error) {
@@ -31,7 +31,7 @@ func HandleDelete(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc, k8sClient c
 				return false, err
 			}
 			pvName := nfspvc.Name + "-" + nfspvc.Namespace + "-pv"
-			return false, fmt.Errorf("pv %q has not been deleted yet: %w", pvName, FailedCleanupError)
+			return false, fmt.Errorf("pv %q has not been deleted yet: %w", pvName, ErrFailedCleanup)
 		}
 		if err := cleanup(ctx, nfspvc.Name, nfspvc.Namespace, k8sClient); err != nil {
 			return false, err

@@ -12,7 +12,7 @@ webhooks:
       namespace: system
       path: /validate-nfspvc-dana-io-v1alpha1-nfspvc
   failurePolicy: Fail
-  name: vnfspvc-v1alpha1.kb.io
+  name: vnfspvc.kb.io
   rules:
   - apiGroups:
     - nfspvc.dana.io

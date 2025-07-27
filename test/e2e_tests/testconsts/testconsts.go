@@ -9,5 +9,5 @@ const (
 )
 
 const (
-	NfsVersion = "v4"
+	NfsVersion = "4"
 )

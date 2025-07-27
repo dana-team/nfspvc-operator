@@ -1,21 +1,11 @@
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: nfspvc-operator-system/nfspvc-operator-serving-cert
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.4
   name: nfspvcs.nfspvc.dana.io
 spec:
-  conversion:
-    strategy: Webhook
-    webhook:
-      clientConfig:
-        service:
-          name: nfspvc-operator-webhook-service
-          namespace: nfspvc-operator-system
-          path: /convert
-      conversionReviewVersions:
-        - v1
   group: nfspvc.dana.io
   names:
     kind: NfsPvc
@@ -24,96 +14,96 @@ spec:
     singular: nfspvc
   scope: Namespaced
   versions:
-    - name: v1alpha1
-      schema:
-        openAPIV3Schema:
-          description: NfsPvc is the Schema for the nfspvcs API
-          properties:
-            apiVersion:
-              description: |-
-                APIVersion defines the versioned schema of this representation of an object.
-                Servers should convert recognized schemas to the latest internal value, and
-                may reject unrecognized values.
-                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-              type: string
-            kind:
-              description: |-
-                Kind is a string value representing the REST resource this object represents.
-                Servers may infer this from the endpoint the client submits requests to.
-                Cannot be updated.
-                In CamelCase.
-                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-              type: string
-            metadata:
-              type: object
-            spec:
-              description: NfsPvcSpec defines the desired state of NfsPvc.
-              properties:
-                accessModes:
-                  description: accessModes contains the desired access modes the volume
-                    should have(RWX, RWO, ROX).
-                  items:
-                    type: string
-                  type: array
-                  x-kubernetes-validations:
-                    - message: AccessModes is immutable
-                      rule: self == oldSelf
-                capacity:
-                  additionalProperties:
-                    anyOf:
-                      - type: integer
-                      - type: string
-                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                    x-kubernetes-int-or-string: true
-                  description: capacity is the description of the persistent volume's
-                    resources and capacity.
-                  type: object
-                  x-kubernetes-validations:
-                    - message: Capacity is immutable
-                      rule: self == oldSelf
-                nfsVersion:
-                  description: nfsVersion specifies the version of the NFS protocol
-                    to use (v3 or v4).
-                  enum:
-                    - v3
-                    - v4
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: NfsPvc is the Schema for the nfspvcs API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: NfsPvcSpec defines the desired state of NfsPvc.
+            properties:
+              accessModes:
+                description: accessModes contains the desired access modes the volume
+                  should have(RWX, RWO, ROX).
+                items:
                   type: string
-                  x-kubernetes-validations:
-                    - message: NFS Version is immutable
-                      rule: self == oldSelf
-                path:
-                  description: path that is exported by the NFS server.
-                  pattern: ^/
-                  type: string
-                  x-kubernetes-validations:
-                    - message: Path is immutable
-                      rule: self == oldSelf
-                server:
-                  description: server is the hostname or IP address of the NFS server
-                  minLength: 1
-                  type: string
-                  x-kubernetes-validations:
-                    - message: Server is immutable
-                      rule: self == oldSelf
-              required:
-                - accessModes
-                - capacity
-                - path
-                - server
-              type: object
-            status:
-              description: NfsPvcStatus defines the observed state of NfsPvc.
-              properties:
-                pvPhase:
-                  description: pvPhase indicates if a volume is available, bound to
-                    a claim, or released by a claim.
-                  type: string
-                pvcPhase:
-                  description: pvcPhase represents the current phase of PersistentVolumeClaim.
-                  type: string
-              type: object
-          type: object
-      served: true
-      storage: true
-      subresources:
-        status: {}
+                type: array
+                x-kubernetes-validations:
+                - message: AccessModes is immutable
+                  rule: self == oldSelf
+              capacity:
+                additionalProperties:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                description: capacity is the description of the persistent volume's
+                  resources and capacity.
+                type: object
+                x-kubernetes-validations:
+                - message: Capacity is immutable
+                  rule: self == oldSelf
+              nfsVersion:
+                default: "3"
+                description: nfsVersion specifies the version of the NFS protocol
+                  to use (v3 or v4).
+                enum:
+                - "3"
+                - "4"
+                - "4.1"
+                - "4.2"
+                type: string
+              path:
+                description: path that is exported by the NFS server.
+                pattern: ^/
+                type: string
+                x-kubernetes-validations:
+                - message: Path is immutable
+                  rule: self == oldSelf
+              server:
+                description: server is the hostname or IP address of the NFS server
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: Server is immutable
+                  rule: self == oldSelf
+            required:
+            - accessModes
+            - capacity
+            - path
+            - server
+            type: object
+          status:
+            description: NfsPvcStatus defines the observed state of NfsPvc.
+            properties:
+              pvPhase:
+                description: pvPhase indicates if a volume is available, bound to
+                  a claim, or released by a claim.
+                type: string
+              pvcPhase:
+                description: pvcPhase represents the current phase of PersistentVolumeClaim.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

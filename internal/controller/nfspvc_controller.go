@@ -70,17 +70,17 @@ func (r *NfsPvcReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	logger := log.FromContext(ctx).WithValues("NfsPvc", req.Name, "NfsPvcNamespace", req.Namespace)
 	logger.Info("Starting Reconcile")
 	nfspvc := danaiov1alpha1.NfsPvc{}
-	if err := r.Client.Get(ctx, req.NamespacedName, &nfspvc); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, &nfspvc); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info("Didn't find NfsPvc")
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to get NfsPvc: %s", err.Error())
 	}
-	if nfspvc.ObjectMeta.DeletionTimestamp != nil {
+	if nfspvc.DeletionTimestamp != nil {
 		deleted, err := resources.HandleDelete(ctx, nfspvc, r.Client)
 		if err != nil {
-			if errors.Is(err, resources.FailedCleanupError) {
+			if errors.Is(err, resources.ErrFailedCleanup) {
 				logger.Info(fmt.Sprintf("failed to handle NfsPvc deletion: %s, so trying again in a few seconds", err.Error()))
 				return ctrl.Result{RequeueAfter: time.Second * RequeueIntervalSeconds}, nil
 			}
@@ -136,7 +136,7 @@ func (r *NfsPvcReconciler) enqueueRequestsFromPersistentVolumeClaim(ctx context.
 
 // Update handles any update to an NFSPVC.
 func (r *NfsPvcReconciler) Update(ctx context.Context, nfspvc danaiov1alpha1.NfsPvc) error {
-	if nfspvc.ObjectMeta.DeletionTimestamp == nil {
+	if nfspvc.DeletionTimestamp == nil {
 		if err := resources.HandleStorageObjectState(ctx, nfspvc, r.Client); err != nil {
 			return err
 		}
