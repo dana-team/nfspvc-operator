@@ -23,10 +23,8 @@ import (
 
 	nfspvcv1alpha1 "github.com/dana-team/nfspvc-operator/api/v1alpha1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -49,11 +47,11 @@ var supportedAccessModes = sets.New(
 
 // log is for logging in this package.
 var nfspvclog = logf.Log.WithName("nfspvc-resource")
-var _ webhook.CustomValidator = &NfsPvcCustomValidator{}
+var _ admission.Validator[*nfspvcv1alpha1.NfsPvc] = &NfsPvcCustomValidator{}
 
 // SetupNfsPvcWebhookWithManager registers the webhook for NfsPvc in the manager.
 func SetupNfsPvcWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&nfspvcv1alpha1.NfsPvc{}).
+	return ctrl.NewWebhookManagedBy(mgr, &nfspvcv1alpha1.NfsPvc{}).
 		WithValidator(&NfsPvcCustomValidator{c: mgr.GetClient()}).
 		Complete()
 }
@@ -64,12 +62,8 @@ type NfsPvcCustomValidator struct {
 	c client.Client
 }
 
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (v *NfsPvcCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	nfspvc, ok := obj.(*nfspvcv1alpha1.NfsPvc)
-	if !ok {
-		return nil, fmt.Errorf("expected a NfsPvc object but got %T", obj)
-	}
+// ValidateCreate implements admission.Validator so a webhook will be registered for the type.
+func (v *NfsPvcCustomValidator) ValidateCreate(ctx context.Context, nfspvc *nfspvcv1alpha1.NfsPvc) (admission.Warnings, error) {
 	nfspvclog.Info("validate create", "name", nfspvc.Name)
 
 	if v.doesPVCExist(v.c, nfspvc.Name, nfspvc.Namespace) {
@@ -83,23 +77,15 @@ func (v *NfsPvcCustomValidator) ValidateCreate(ctx context.Context, obj runtime.
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *NfsPvcCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	nfspvc, ok := oldObj.(*nfspvcv1alpha1.NfsPvc)
-	if !ok {
-		return nil, fmt.Errorf("expected a NfsPvc object but got %T", oldObj)
-	}
-	nfspvclog.Info("validate update", "name", nfspvc.Name)
+// ValidateUpdate implements admission.Validator so a webhook will be registered for the type.
+func (v *NfsPvcCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj *nfspvcv1alpha1.NfsPvc) (admission.Warnings, error) {
+	nfspvclog.Info("validate update", "name", oldObj.Name)
 
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *NfsPvcCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	nfspvc, ok := obj.(*nfspvcv1alpha1.NfsPvc)
-	if !ok {
-		return nil, fmt.Errorf("expected a NfsPvc object but got %T", obj)
-	}
+// ValidateDelete implements admission.Validator so a webhook will be registered for the type.
+func (v *NfsPvcCustomValidator) ValidateDelete(ctx context.Context, nfspvc *nfspvcv1alpha1.NfsPvc) (admission.Warnings, error) {
 	nfspvclog.Info("validate delete", "name", nfspvc.Name)
 
 	return nil, nil
