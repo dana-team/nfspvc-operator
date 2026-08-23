@@ -47,16 +47,27 @@ type NfsPvcSpec struct {
 	NfsVersion string `json:"nfsVersion,omitempty" protobuf:"bytes,4,opt,name=nfsVersion"`
 }
 
+const (
+	// ConditionReady indicates that both the PV and PVC are bound and the volume is operational.
+	ConditionReady = "Ready"
+)
+
 // NfsPvcStatus defines the observed state of NfsPvc.
 type NfsPvcStatus struct {
 	// pvcPhase represents the current phase of PersistentVolumeClaim.
 	PvcPhase string `json:"pvcPhase,omitempty" protobuf:"bytes,3,opt,name=pvcPhase"`
 	// pvPhase indicates if a volume is available, bound to a claim, or released by a claim.
 	PvPhase string `json:"pvPhase,omitempty" protobuf:"bytes,3,opt,name=pvPhase"`
+	// conditions represent the latest available observations of the NfsPvc's state.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 
 // NfsPvc is the Schema for the nfspvcs API
 type NfsPvc struct {
