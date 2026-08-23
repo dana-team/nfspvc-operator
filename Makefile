@@ -173,7 +173,7 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
-GINKGO ?= $(LOCALBIN)/ginkgo
+GINKGO ?= $(LOCALBIN)/ginkgo-$(GINKGO_VERSION)
 HELM_DOCS ?= $(LOCALBIN)/helm-docs-$(HELM_DOCS_VERSION)
 HELM_URL ?= https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
 
@@ -182,6 +182,7 @@ KUSTOMIZE_VERSION ?= v5.5.0
 CONTROLLER_TOOLS_VERSION ?= v0.16.4
 ENVTEST_VERSION ?= release-0.19
 GOLANGCI_LINT_VERSION ?= v2.3.0
+GINKGO_VERSION ?= v2.27.5
 HELM_DOCS_VERSION ?= v1.14.2
 
 .PHONY: kustomize
@@ -207,7 +208,7 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 .PHONY: ginkgo
 ginkgo: $(GINKGO) ## Download ginkgo locally if necessary.
 $(GINKGO): $(LOCALBIN)
-	test -s $(LOCALBIN)/ginkgo || GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@latest
+	$(call go-install-tool,$(GINKGO),github.com/onsi/ginkgo/v2/ginkgo,$(GINKGO_VERSION))
 
 .PHONY: helm
 helm:
