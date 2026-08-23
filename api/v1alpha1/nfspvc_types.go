@@ -86,7 +86,3 @@ type NfsPvcList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []NfsPvc `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&NfsPvc{}, &NfsPvcList{})
-}

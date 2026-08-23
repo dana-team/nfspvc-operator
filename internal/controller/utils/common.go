@@ -9,7 +9,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"golang.org/x/exp/slices"
+	"slices"
 )
 
 const (
