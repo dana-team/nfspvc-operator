@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
 
@@ -27,19 +27,19 @@ jobs:
     timeout-minutes: 20
     env:
       IMAGE_REGISTRY: kind-registry:5000
-      KIND_VERSION: v0.25.0
-      K8S_VERSION: v1.31.2
+      KIND_VERSION: v0.33.0
+      K8S_VERSION: v1.37.0
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
 
       - name: Start kind cluster
-        uses: container-tools/kind-action@v2
+        uses: container-tools/kind-action@v2.0.4
         with:
           cluster_name: hub
           version: ${{env.KIND_VERSION}}
@@ -47,7 +47,7 @@ jobs:
           registry: true
 
       - name: Deploy cert-manager
-        run: kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.17.0/cert-manager.yaml
+        run: kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.21.3/cert-manager.yaml
 
       - name: Build controller image
         run: make docker-build docker-push IMG=${IMAGE_REGISTRY}/nfspvc-operator-system:test-${GITHUB_REF##*/}
@@ -56,7 +56,7 @@ jobs:
         run: make deploy IMG=${IMAGE_REGISTRY}/nfspvc-operator-system:test-${GITHUB_REF##*/}
 
       - name: Await controller to be ready
-        uses: jupyterhub/action-k8s-await-workloads@v3
+        uses: jupyterhub/action-k8s-await-workloads@v3.0.2
         with:
           workloads: ""
           namespace: "nfspvc-operator-system"
